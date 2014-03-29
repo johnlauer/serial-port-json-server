@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"strings"
 )
@@ -24,6 +25,15 @@ type serialhub struct {
 
 	// Unregister requests from connections.
 	unregister chan *serport
+}
+
+type SpPortList struct {
+	SerialPorts []SpPortItem
+}
+
+type SpPortItem struct {
+	Name     string
+	Friendly string
 }
 
 var sh = serialhub{
@@ -71,11 +81,37 @@ func (sh *serialhub) run() {
 }
 
 func spList() {
-	ls := "{serialports:[\n"
+
+	list, _ := getList()
+	n := len(list)
+	spl := SpPortList{make([]SpPortItem, n, n)}
+	ctr := 0
+	for _, item := range list {
+		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName}
+		//ls += "{ \"name\" : \"" + item.Name + "\", \"friendly\" : \"" + item.FriendlyName + "\" },\n"
+		ctr++
+	}
+
+	ls, err := json.MarshalIndent(spl, "", "\t")
+	if err != nil {
+		log.Println(err)
+		h.broadcastSys <- []byte("Error creating json on port list " +
+			err.Error())
+	} else {
+		log.Print("Printing out json byte data...")
+		log.Print(ls)
+		h.broadcastSys <- ls
+	}
+}
+
+func spListOld() {
+	ls := "{\"serialports\" : [\n"
 	list, _ := getList()
 	for _, item := range list {
-		ls += "{name:'" + item.Name + "', friendly:'" + item.FriendlyName + "'}\n"
+		ls += "{ \"name\" : \"" + item.Name + "\", \"friendly\" : \"" + item.FriendlyName + "\" },\n"
 	}
+	ls = strings.TrimSuffix(ls, "},\n")
+	ls += "}\n"
 	ls += "]}\n"
 	h.broadcastSys <- []byte(ls)
 }

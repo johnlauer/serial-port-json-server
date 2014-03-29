@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"github.com/tarm/goserial"
 	"io"
 	"log"
@@ -21,6 +22,11 @@ type serport struct {
 	send chan []byte
 }
 
+type SpPortMessage struct {
+	P string
+	D string
+}
+
 func (p *serport) reader() {
 	//var buf bytes.Buffer
 	for {
@@ -31,7 +37,26 @@ func (p *serport) reader() {
 		// so process the bytes if n > 0
 		if n > 0 {
 			log.Print("Read " + strconv.Itoa(n) + " bytes ch: " + string(ch))
-			h.broadcastSys <- []byte("{p: '" + p.portConf.Name + "', d: '" + string(ch[:n]) + "'}\n")
+			data := string(ch[:n])
+			log.Print("The data i will convert to json is:")
+			log.Print(data)
+
+			//m := SpPortMessage{"Alice", "Hello"}
+			m := SpPortMessage{p.portConf.Name, data}
+			log.Print("The m obj struct is:")
+			log.Print(m)
+
+			b, err := json.MarshalIndent(m, "", "\t")
+			if err != nil {
+				log.Println(err)
+				h.broadcastSys <- []byte("Error creating json on " + p.portConf.Name + " " +
+					err.Error() + " The data we were trying to convert is: " + string(ch[:n]))
+				break
+			}
+			log.Print("Printing out json byte data...")
+			log.Print(b)
+			h.broadcastSys <- b
+			//h.broadcastSys <- []byte("{ \"p\" : \"" + p.portConf.Name + "\", \"d\": \"" + string(ch[:n]) + "\" }\n")
 		}
 
 		if p.isClosing {
