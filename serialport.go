@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/tarm/goserial"
+	"github.com/johnlauer/goserial"
 	"io"
 	"log"
 	"strconv"
@@ -36,15 +36,15 @@ func (p *serport) reader() {
 		// read can return legitimate bytes as well as an error
 		// so process the bytes if n > 0
 		if n > 0 {
-			log.Print("Read " + strconv.Itoa(n) + " bytes ch: " + string(ch))
+			//log.Print("Read " + strconv.Itoa(n) + " bytes ch: " + string(ch))
 			data := string(ch[:n])
-			log.Print("The data i will convert to json is:")
-			log.Print(data)
+			//log.Print("The data i will convert to json is:")
+			//log.Print(data)
 
 			//m := SpPortMessage{"Alice", "Hello"}
 			m := SpPortMessage{p.portConf.Name, data}
-			log.Print("The m obj struct is:")
-			log.Print(m)
+			//log.Print("The m obj struct is:")
+			//log.Print(m)
 
 			b, err := json.MarshalIndent(m, "", "\t")
 			if err != nil {
@@ -53,8 +53,8 @@ func (p *serport) reader() {
 					err.Error() + " The data we were trying to convert is: " + string(ch[:n]))
 				break
 			}
-			log.Print("Printing out json byte data...")
-			log.Print(b)
+			//log.Print("Printing out json byte data...")
+			//log.Print(string(b))
 			h.broadcastSys <- b
 			//h.broadcastSys <- []byte("{ \"p\" : \"" + p.portConf.Name + "\", \"d\": \"" + string(ch[:n]) + "\" }\n")
 		}
@@ -105,10 +105,10 @@ func (p *serport) reader() {
 func (p *serport) writer() {
 	for data := range p.send {
 		n2, err := p.portIo.Write(data)
-		log.Print("Just wrote ")
-		log.Print(n2)
-		log.Print(" bytes to serial: ")
-		log.Print(data)
+		log.Print("Just wrote ", n2, " bytes to serial: ", string(data))
+		//log.Print(n2)
+		//log.Print(" bytes to serial: ")
+		//log.Print(data)
 		if err != nil {
 			errstr := "Error writing to " + p.portConf.Name + " " + err.Error() + " Closing port."
 			log.Fatal(errstr)
@@ -138,7 +138,7 @@ func spHandlerOpen(portname string, baud int) {
 	//h.broadcast <- []byte("Opened a serial port bitches")
 	h.broadcastSys <- out.Bytes()
 
-	conf := &serial.Config{Name: portname, Baud: baud}
+	conf := &serial.Config{Name: portname, Baud: baud, RtsOn: true}
 	log.Print("Created config for port")
 	log.Print(conf)
 

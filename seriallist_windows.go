@@ -2,16 +2,16 @@ package main
 
 import (
 	//"fmt"
-	"github.com/lxn/win"
+	//"github.com/lxn/win"
 	"github.com/mattn/go-ole"
 	"github.com/mattn/go-ole/oleutil"
-	"github.com/tarm/goserial"
+	//"github.com/tarm/goserial"
 	"log"
 	"os"
 	"strings"
 	//"encoding/binary"
-	"strconv"
-	"syscall"
+	//"strconv"
+	//"syscall"
 )
 
 func getList() ([]OsSerialPort, os.SyscallError) {
@@ -59,7 +59,7 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 
 		asString, _ := oleutil.GetProperty(item, "Name")
 
-		println(asString.ToString())
+		//log.println(asString.ToString())
 
 		// get the com port
 		s := strings.Split(asString.ToString(), "(COM")[1]
@@ -76,6 +76,7 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 	return list, err
 }
 
+/*
 func getListViaOpen() ([]OsSerialPort, os.SyscallError) {
 
 	var err os.SyscallError
@@ -205,3 +206,4 @@ func getFriendlyName(portname string) string {
 
 	return friendlyName
 }
+*/
