@@ -34,6 +34,10 @@ type SpPortList struct {
 type SpPortItem struct {
 	Name     string
 	Friendly string
+	IsOpen   bool
+	Baud     int
+	RtsOn    bool
+	DtrOn    bool
 }
 
 var sh = serialhub{
@@ -53,23 +57,23 @@ func (sh *serialhub) run() {
 	for {
 		select {
 		case p := <-sh.register:
-			log.Print("Registering a port ")
-			log.Print(p)
+			log.Print("Registering a port: ", p.portConf.Name)
+			//log.Print(p.portConf.Name)
 			sh.ports[p] = true
 		case p := <-sh.unregister:
 			delete(sh.ports, p)
 			close(p.send)
 		case wr := <-sh.write:
 			log.Print("Got a write to a port")
-			log.Print("Port is ")
-			log.Print(wr.p)
-			log.Print("Data is ")
-			log.Print(wr.d)
-			log.Print("Data as string:" + string(wr.d))
+			log.Print("Port: ", string(wr.p.portConf.Name))
+			//log.Print(wr.p)
+			//log.Print("Data is ")
+			//log.Print(wr.d)
+			log.Print("Data:" + string(wr.d))
 			log.Print("-----")
 			select {
 			case wr.p.send <- wr.d:
-				log.Print("Did write to serport")
+				//log.Print("Did write to serport")
 			default:
 				delete(sh.ports, wr.p)
 				close(wr.p.send)
@@ -87,7 +91,19 @@ func spList() {
 	spl := SpPortList{make([]SpPortItem, n, n)}
 	ctr := 0
 	for _, item := range list {
-		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName}
+		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false}
+
+		// figure out if port is open
+		//spl.SerialPorts[ctr].IsOpen = false
+		myport, isFound := findPortByName(item.Name)
+
+		if isFound {
+			// we found our port
+			spl.SerialPorts[ctr].IsOpen = true
+			spl.SerialPorts[ctr].Baud = myport.portConf.Baud
+			spl.SerialPorts[ctr].RtsOn = myport.portConf.RtsOn
+			spl.SerialPorts[ctr].DtrOn = myport.portConf.DtrOn
+		}
 		//ls += "{ \"name\" : \"" + item.Name + "\", \"friendly\" : \"" + item.FriendlyName + "\" },\n"
 		ctr++
 	}
@@ -98,8 +114,8 @@ func spList() {
 		h.broadcastSys <- []byte("Error creating json on port list " +
 			err.Error())
 	} else {
-		log.Print("Printing out json byte data...")
-		log.Print(ls)
+		//log.Print("Printing out json byte data...")
+		//log.Print(ls)
 		h.broadcastSys <- ls
 	}
 }
@@ -140,9 +156,9 @@ func spClose(portname string) {
 
 func spWrite(arg string) {
 	// we will get a string of comXX asdf asdf asdf
-	log.Println("Inside spWrite arg: " + arg)
+	//log.Println("Inside spWrite arg: " + arg)
 	arg = strings.TrimPrefix(arg, " ")
-	log.Println("arg after trim: " + arg)
+	//log.Println("arg after trim: " + arg)
 	args := strings.SplitN(arg, " ", 3)
 	if len(args) != 3 {
 		errstr := "Could not parse send command: " + arg
@@ -151,8 +167,8 @@ func spWrite(arg string) {
 		return
 	}
 	portname := strings.Trim(args[1], " ")
-	log.Println("The port to write to is:" + portname + "---")
-	log.Println("The data is:" + args[2])
+	//log.Println("The port to write to is:" + portname + "---")
+	//log.Println("The data is:" + args[2])
 
 	// see if we have this port open
 	myport, isFound := findPortByName(portname)
