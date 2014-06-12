@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -58,9 +59,12 @@ func (sh *serialhub) run() {
 		select {
 		case p := <-sh.register:
 			log.Print("Registering a port: ", p.portConf.Name)
+			h.broadcastSys <- []byte("{\"Cmd\" : \"Open\", \"Desc\" : \"Got register/open on port.\", \"Port\" : \"" + p.portConf.Name + "\", \"Baud\" : " + strconv.Itoa(p.portConf.Baud) + " }")
 			//log.Print(p.portConf.Name)
 			sh.ports[p] = true
 		case p := <-sh.unregister:
+			log.Print("Unregistering a port: ", p.portConf.Name)
+			h.broadcastSys <- []byte("{\"Cmd\" : \"Close\", \"Desc\" : \"Got unregister/close on port.\", \"Port\" : \"" + p.portConf.Name + "\", \"Baud\" : " + strconv.Itoa(p.portConf.Baud) + " }")
 			delete(sh.ports, p)
 			close(p.send)
 		case wr := <-sh.write:
@@ -74,9 +78,11 @@ func (sh *serialhub) run() {
 			select {
 			case wr.p.send <- wr.d:
 				//log.Print("Did write to serport")
+				h.broadcastSys <- []byte("{\"Cmd\" : \"Write\", \"Desc\" : \"Did write on port.\", \"Port\" : \"" + wr.p.portConf.Name + "\"}")
 			default:
-				delete(sh.ports, wr.p)
-				close(wr.p.send)
+				sh.unregister <- wr.p
+				//delete(sh.ports, wr.p)
+				//close(wr.p.send)
 				//wr.p.port.Close()
 				//go wr.p.port.Close()
 			}
