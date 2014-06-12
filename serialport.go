@@ -147,7 +147,9 @@ func spHandlerOpen(portname string, baud int) {
 	if err != nil {
 		//log.Fatal(err)
 		log.Print("Error opening port " + err.Error())
-		h.broadcastSys <- []byte("Error opening port. " + err.Error())
+		//h.broadcastSys <- []byte("Error opening port. " + err.Error())
+		h.broadcastSys <- []byte("{\"Cmd\" : \"OpenFail\", \"Desc\" : \"Error opening port. " + err.Error() + "\", \"Port\" : \"" + conf.Name + "\", \"Baud\" : " + strconv.Itoa(conf.Baud) + " }")
+
 		return
 	}
 	log.Print("Opened port successfully")
