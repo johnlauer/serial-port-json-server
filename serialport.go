@@ -111,7 +111,7 @@ func (p *serport) writer() {
 		//log.Print(data)
 		if err != nil {
 			errstr := "Error writing to " + p.portConf.Name + " " + err.Error() + " Closing port."
-			log.Fatal(errstr)
+			log.Print(errstr)
 			h.broadcastSys <- []byte(errstr)
 			break
 		}

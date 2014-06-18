@@ -143,6 +143,7 @@ func spListOld() {
 func spErr(err string) {
 	log.Println("Sending err back: ", err)
 	h.broadcastSys <- []byte(err)
+	h.broadcastSys <- []byte("{\"Error\" : \"" + err + "\"}")
 }
 
 func spClose(portname string) {
@@ -164,7 +165,7 @@ func spClose(portname string) {
 
 func spWrite(arg string) {
 	// we will get a string of comXX asdf asdf asdf
-	//log.Println("Inside spWrite arg: " + arg)
+	log.Println("Inside spWrite arg: " + arg)
 	arg = strings.TrimPrefix(arg, " ")
 	//log.Println("arg after trim: " + arg)
 	args := strings.SplitN(arg, " ", 3)
@@ -175,8 +176,8 @@ func spWrite(arg string) {
 		return
 	}
 	portname := strings.Trim(args[1], " ")
-	//log.Println("The port to write to is:" + portname + "---")
-	//log.Println("The data is:" + args[2])
+	log.Println("The port to write to is:" + portname + "---")
+	log.Println("The data is:" + args[2] + "---")
 
 	// see if we have this port open
 	myport, isFound := findPortByName(portname)
@@ -191,7 +192,11 @@ func spWrite(arg string) {
 	// create our write request
 	var wr writeRequest
 	wr.p = myport
-	wr.d = []byte(args[2] + "\n")
+
+	// include newline or not in the write? that is the question.
+	// for now lets skip the newline
+	//wr.d = []byte(args[2] + "\n")
+	wr.d = []byte(args[2])
 
 	// send it to the write channel
 	sh.write <- wr
