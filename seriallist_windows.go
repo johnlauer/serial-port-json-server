@@ -42,7 +42,14 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 	// result is a SWBemObjectSet
 	//pname := syscall.StringToUTF16("SELECT * FROM Win32_PnPEntity where Name like '%" + "COM35" + "%'")
 	pname := "SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0 and Name like '%(COM%'"
-	resultRaw, _ := oleutil.CallMethod(service, "ExecQuery", pname)
+	//pname := "SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0"
+	resultRaw, err2 := oleutil.CallMethod(service, "ExecQuery", pname)
+	log.Println("Got result from oleutil.CallMethod")
+	if err2 != nil {
+		// we got back an error or empty list
+		return nil, err
+	}
+
 	result := resultRaw.ToIDispatch()
 	defer result.Release()
 
@@ -59,14 +66,16 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 
 		asString, _ := oleutil.GetProperty(item, "Name")
 
-		//log.println(asString.ToString())
+		log.Println(asString.ToString())
 
 		// get the com port
+		//if false {
 		s := strings.Split(asString.ToString(), "(COM")[1]
 		s = "COM" + s
 		s = strings.Split(s, ")")[0]
 		list[i].Name = s
 		list[i].FriendlyName = asString.ToString()
+		//}
 	}
 
 	for index, element := range list {
