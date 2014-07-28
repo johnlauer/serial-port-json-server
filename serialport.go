@@ -20,11 +20,16 @@ type serport struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	// Do we have an extra channel/thread to watch our buffer?
+	BufferType string
+	//bufferwatcher *BufferflowDummypause
+	bufferwatcher Bufferflow
 }
 
 type SpPortMessage struct {
-	P string
-	D string
+	P string // the port, i.e. com22
+	D string // the data, i.e. G0 X0 Y0
 }
 
 func (p *serport) reader() {
@@ -40,6 +45,13 @@ func (p *serport) reader() {
 			data := string(ch[:n])
 			//log.Print("The data i will convert to json is:")
 			//log.Print(data)
+
+			// give the data to our bufferflow so it can do it's work
+			// to read/translate the data to see if it wants to block
+			// writes to the serialport. each bufferflow type will decide
+			// this on its own based on its logic, i.e. tinyg vs grbl vs others
+			//p.b.bufferwatcher..OnIncomingData(data)
+			p.bufferwatcher.OnIncomingData(data)
 
 			//m := SpPortMessage{"Alice", "Hello"}
 			m := SpPortMessage{p.portConf.Name, data}
@@ -102,9 +114,25 @@ func (p *serport) reader() {
 	p.portIo.Close()
 }
 
+// this method runs as its own thread because it's instantiated
+// as a "go" method. so if it blocks inside, it is ok
 func (p *serport) writer() {
+	// this for loop blocks on p.send until that channel
+	// sees something come in
 	for data := range p.send {
+
+		// we want to block here if we are being asked
+		// to pause. the problem is, how do we unblock
+		//bufferBlockUntilReady(p.bufferwatcher)
+		p.bufferwatcher.BlockUntilReady()
+
 		n2, err := p.portIo.Write(data)
+
+		// if we get here, we were able to write successfully
+		// to the serial port because it blocks until it can write
+
+		h.broadcastSys <- []byte("{\"Cmd\" : \"WriteComplete\", \"Bytes\" : " + strconv.Itoa(n2) + ", \"Desc\" : \"Completed write on port.\", \"Port\" : \"" + p.portConf.Name + "\"}")
+
 		log.Print("Just wrote ", n2, " bytes to serial: ", string(data))
 		//log.Print(n2)
 		//log.Print(" bytes to serial: ")
@@ -122,7 +150,7 @@ func (p *serport) writer() {
 	p.portIo.Close()
 }
 
-func spHandlerOpen(portname string, baud int) {
+func spHandlerOpen(portname string, baud int, buftype string) {
 
 	log.Print("Inside spHandler")
 
@@ -153,7 +181,36 @@ func spHandlerOpen(portname string, baud int) {
 		return
 	}
 	log.Print("Opened port successfully")
-	p := &serport{send: make(chan []byte, 256), portConf: conf, portIo: sp}
+	//p := &serport{send: make(chan []byte, 256), portConf: conf, portIo: sp}
+	p := &serport{send: make(chan []byte, 256*100), portConf: conf, portIo: sp, BufferType: buftype}
+
+	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
+	if buftype != "" {
+
+		if buftype == "tinyg" {
+			bw := &BufferflowTinyg{Name: "no name needed"}
+			bw.Init()
+			p.bufferwatcher = bw
+		}
+		//p.bufferwatcher := &bufferflow{buffertype: buftype}
+		//p.bufferwatcher.buffertype = buftype
+
+		// could open the buffer thread here, or do it when this
+		// port is registered. the buffer thread will watch the writer
+		// and the reader. it will look at the content and decide
+		// if a pause must occur
+
+	} else {
+		// for now, just use a dummy pause type bufferflow object
+		// to test artificially a delay on the serial port write
+		//p.bufferwatcher.buffertype = "dummypause"
+		//p.bufferwatcher.BlockUntilReady()
+		bw := &BufferflowDummypause{Name: "blah"}
+		p.bufferwatcher = bw
+		//p.bufferwatcher.Name = "blah2"
+
+	}
+
 	sh.register <- p
 	defer func() { sh.unregister <- p }()
 	go p.writer()

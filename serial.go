@@ -1,4 +1,4 @@
-// Supports Windows, Linux, Mac, and Raspberry Pi
+// Supports Windows, Linux, Mac, BeagleBone Black, and Raspberry Pi
 
 package main
 
@@ -61,7 +61,7 @@ func (sh *serialhub) run() {
 		select {
 		case p := <-sh.register:
 			log.Print("Registering a port: ", p.portConf.Name)
-			h.broadcastSys <- []byte("{\"Cmd\" : \"Open\", \"Desc\" : \"Got register/open on port.\", \"Port\" : \"" + p.portConf.Name + "\", \"Baud\" : " + strconv.Itoa(p.portConf.Baud) + " }")
+			h.broadcastSys <- []byte("{\"Cmd\" : \"Open\", \"Desc\" : \"Got register/open on port.\", \"Port\" : \"" + p.portConf.Name + "\", \"Baud\" : " + strconv.Itoa(p.portConf.Baud) + ", \"BufferType\" : \"" + p.BufferType + "\" }")
 			//log.Print(p.portConf.Name)
 			sh.ports[p] = true
 		case p := <-sh.unregister:
@@ -70,17 +70,18 @@ func (sh *serialhub) run() {
 			delete(sh.ports, p)
 			close(p.send)
 		case wr := <-sh.write:
-			log.Print("Got a write to a port")
-			log.Print("Port: ", string(wr.p.portConf.Name))
+			//log.Print("Got a write to a port")
+			//log.Print("Port: ", string(wr.p.portConf.Name))
 			//log.Print(wr.p)
 			//log.Print("Data is ")
 			//log.Print(wr.d)
-			log.Print("Data:" + string(wr.d))
-			log.Print("-----")
+			//log.Print("Data:" + string(wr.d))
+			//log.Print("-----")
 			select {
 			case wr.p.send <- wr.d:
 				//log.Print("Did write to serport")
-				h.broadcastSys <- []byte("{\"Cmd\" : \"Write\", \"Desc\" : \"Did write on port.\", \"Port\" : \"" + wr.p.portConf.Name + "\"}")
+				//h.broadcastSys <- []byte("{\"Cmd\" : \"Write\", \"Desc\" : \"Did write on port.\", \"Port\" : \"" + wr.p.portConf.Name + "\"}")
+				h.broadcastSys <- []byte("{\"Cmd\" : \"Write\", \"Desc\" : \"Queued write on port.\", \"Port\" : \"" + wr.p.portConf.Name + "\"}")
 			default:
 				sh.unregister <- wr.p
 				//delete(sh.ports, wr.p)
