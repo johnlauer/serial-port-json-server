@@ -47,6 +47,7 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 	log.Println("Got result from oleutil.CallMethod")
 	if err2 != nil {
 		// we got back an error or empty list
+		log.Printf("Got an error back from oleutil.CallMethod. err:%v", err2)
 		return nil, err
 	}
 
