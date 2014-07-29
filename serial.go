@@ -35,12 +35,13 @@ type SpPortList struct {
 }
 
 type SpPortItem struct {
-	Name     string
-	Friendly string
-	IsOpen   bool
-	Baud     int
-	RtsOn    bool
-	DtrOn    bool
+	Name          string
+	Friendly      string
+	IsOpen        bool
+	Baud          int
+	RtsOn         bool
+	DtrOn         bool
+	BufferWatcher string
 }
 
 var sh = serialhub{
@@ -100,7 +101,7 @@ func spList() {
 	spl := SpPortList{make([]SpPortItem, n, n)}
 	ctr := 0
 	for _, item := range list {
-		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false}
+		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false, ""}
 
 		// figure out if port is open
 		//spl.SerialPorts[ctr].IsOpen = false
@@ -112,6 +113,7 @@ func spList() {
 			spl.SerialPorts[ctr].Baud = myport.portConf.Baud
 			spl.SerialPorts[ctr].RtsOn = myport.portConf.RtsOn
 			spl.SerialPorts[ctr].DtrOn = myport.portConf.DtrOn
+			spl.SerialPorts[ctr].BufferWatcher = myport.BufferType
 		}
 		//ls += "{ \"name\" : \"" + item.Name + "\", \"friendly\" : \"" + item.FriendlyName + "\" },\n"
 		ctr++

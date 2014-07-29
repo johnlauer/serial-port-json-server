@@ -205,7 +205,8 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		// to test artificially a delay on the serial port write
 		//p.bufferwatcher.buffertype = "dummypause"
 		//p.bufferwatcher.BlockUntilReady()
-		bw := &BufferflowDummypause{Name: "blah"}
+		//bw := &BufferflowDummypause{Name: "blah"}
+		bw := &BufferflowDefault{}
 		p.bufferwatcher = bw
 		//p.bufferwatcher.Name = "blah2"
 
