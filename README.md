@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.3
+Version 1.3.1
 
 A serial port JSON websocket &amp; web server that runs from the command line on 
 Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial 
