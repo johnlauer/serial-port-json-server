@@ -18,8 +18,11 @@ type serport struct {
 	// just so we don't show scary error messages
 	isClosing bool
 
-	// Buffered channel of outbound messages.
-	send chan []byte
+	// buffered channel containing up to 25600 outbound messages.
+	sendBuffered chan []byte
+
+	// unbuffered channel of outbound messages that bypass internal serial port buffer
+	sendNoBuf chan []byte
 
 	// Do we have an extra channel/thread to watch our buffer?
 	BufferType string
@@ -116,22 +119,50 @@ func (p *serport) reader() {
 
 // this method runs as its own thread because it's instantiated
 // as a "go" method. so if it blocks inside, it is ok
-func (p *serport) writer() {
+func (p *serport) writerBuffered() {
 	// this for loop blocks on p.send until that channel
 	// sees something come in
-	for data := range p.send {
+	for data := range p.sendBuffered {
+
+		log.Printf("Got p.sendBuffered. data:%v\n", string(data))
+
+		// we want to block here if we are being asked
+		// to pause.
+		goodToGo := p.bufferwatcher.BlockUntilReady()
+
+		if goodToGo == false {
+			log.Println("We got back from BlockUntilReady() but apparently we must cancel this cmd")
+		} else {
+			// send to the non-buffered serial port writer
+			log.Println("About to send to p.sendNoBuf channel")
+			p.sendNoBuf <- data
+		}
+	}
+	msgstr := "writerBuffered just got closed. make sure you make a new one. port:" + p.portConf.Name
+	log.Println(msgstr)
+	h.broadcastSys <- []byte(msgstr)
+}
+
+// this method runs as its own thread because it's instantiated
+// as a "go" method. so if it blocks inside, it is ok
+func (p *serport) writerNoBuf() {
+	// this for loop blocks on p.send until that channel
+	// sees something come in
+	for data := range p.sendNoBuf {
+
+		log.Printf("Got p.send. data:%v\n", string(data))
 
 		// we want to block here if we are being asked
 		// to pause. the problem is, how do we unblock
 		//bufferBlockUntilReady(p.bufferwatcher)
-		p.bufferwatcher.BlockUntilReady()
+		//p.bufferwatcher.BlockUntilReady()
 
 		n2, err := p.portIo.Write(data)
 
 		// if we get here, we were able to write successfully
 		// to the serial port because it blocks until it can write
 
-		h.broadcastSys <- []byte("{\"Cmd\" : \"WriteComplete\", \"Bytes\" : " + strconv.Itoa(n2) + ", \"Desc\" : \"Completed write on port.\", \"Port\" : \"" + p.portConf.Name + "\"}")
+		h.broadcastSys <- []byte("{\"Cmd\" : \"WriteComplete\", \"Bytes\" : " + strconv.Itoa(n2) + ", \"Port\" : \"" + p.portConf.Name + "\"}")
 
 		log.Print("Just wrote ", n2, " bytes to serial: ", string(data))
 		//log.Print(n2)
@@ -182,7 +213,7 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 	}
 	log.Print("Opened port successfully")
 	//p := &serport{send: make(chan []byte, 256), portConf: conf, portIo: sp}
-	p := &serport{send: make(chan []byte, 256*100), portConf: conf, portIo: sp, BufferType: buftype}
+	p := &serport{sendBuffered: make(chan []byte, 256*100), sendNoBuf: make(chan []byte), portConf: conf, portIo: sp, BufferType: buftype}
 
 	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
 	if buftype != "" {
@@ -190,6 +221,7 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		if buftype == "tinyg" {
 			bw := &BufferflowTinyg{Name: "no name needed"}
 			bw.Init()
+			bw.Port = portname
 			p.bufferwatcher = bw
 		}
 		//p.bufferwatcher := &bufferflow{buffertype: buftype}
@@ -208,13 +240,17 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		//bw := &BufferflowDummypause{Name: "blah"}
 		bw := &BufferflowDefault{}
 		p.bufferwatcher = bw
+
 		//p.bufferwatcher.Name = "blah2"
 
 	}
 
 	sh.register <- p
 	defer func() { sh.unregister <- p }()
-	go p.writer()
+	// this is internally buffered thread to not send to serial port if blocked
+	go p.writerBuffered()
+	// this is thread to send to serial port regardless of block
+	go p.writerNoBuf()
 	p.reader()
 }
 
