@@ -2,44 +2,22 @@ serial-port-json-server
 =======================
 Version 1.3.1
 
-A serial port JSON websocket &amp; web server that runs from the command line on 
-Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial 
-port from a web application. This enables web apps to be written that can 
-communicate with your local serial device such as an Arduino, CNC controller, or 
-any device that communicates over the serial port.
+A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
-The app is written in Go. It has an embedded web server and websocket server.
-The server runs on the standard port of localhost:8989. You can connect to
-it locally with your browser to interact by visiting http://localhost:8989.
-The websocket is technically running at ws://localhost/ws.
+The app is written in Go. It has an embedded web server and websocket server. The server runs on the standard port of localhost:8989. You can connect to it locally with your browser to interact by visiting http://localhost:8989. The websocket is technically running at ws://localhost/ws. You can of course connect to your websocket from any other computer to bind in remotely. For example, just connect to ws://192.168.1.10/ws if you are on a remote host where 192.168.1.10 is your devices actual IP address.
 
-Supported commands are:
-	list
-	open [portName] [baud]
-	close [portName]
-	send [portName] [cmd]
+The app is one executable with everything you need and is available ready-to-go for every major platform. It is a multi-threaded app that uses all of the cool techniques available in Go including extensive use of channels (threads) to create a super-responsive app.
 
-The app is one executable with everything you need and is available ready-to-go
-for every major platform.
+If you are a web developer and want to write a web application that connects to somebody's local or remote serial port server, then you simply need to create a websocket connection to the localhost or remote host and you will be directly interacting with that user's serial port.
 
-If you are a web developer and want to write a web application that connects
-to somebody's local or remote serial port server, then you simply need to create a 
-websocket connection to the localhost or remote host and you will be directly 
-interacting with that user's serial port.
+For example, if you wanted to create a Gcode Sender web app to enable people to send 3D print or milling commands from your site, this would be a perfect use case. Or if you've created an oscilloscope web app that connects to an Arduino, it would be another great use case. Finally you can write web apps that interact with a user's local hardware.
 
-For example, if you wanted to create a Gcode Sender web app to enable people to send
-3D print or milling commands from your site, this would be a perfect use case. Or if
-you've created an oscilloscope web app that connects to an Arduino, it would be another
-great use case. Finally you can write web apps that interact with a user's local hardware.
-
-Thanks go to gary.burd.info for the websocket example in Go. Thanks also go to 
-tarm/goserial for the serial port base implementation.
+Thanks go to gary.burd.info for the websocket example in Go. Thanks also go to tarm/goserial for the serial port base implementation.
 
 How to Build
 ---------
 1. Install Go (http://golang.org/doc/install)
-2. If you're on a Mac, install Xcode from the Apple Store.
-   If you're on Windows, Linux, Raspberry Pi, or Beagle Bone you are all set.
+2. If you're on a Mac, install Xcode from the Apple Store because you'll need gcc to compile the native code for a Mac. If you're on Windows, Linux, Raspberry Pi, or Beagle Bone you are all set.
 3. Get go into your path so you can run "go" from any directory:
 	On Linux, Mac, Raspberry Pi, Beagle Bone Black
 	export PATH=$PATH:/usr/local/go/bin
@@ -60,21 +38,27 @@ called serial-port-json-server
 Supported Commands
 -------
 
-Command | Description
-------- | -----------
-list    | Lists all available serial ports on your device
-open comPort baudRate [bufferFlowAlgorithm] | Opens a serial port. The comPort should be the Name of the port inside the list response such as COM2 or /dev/ttyACM0. The baudrate should be a rate from the baudrates command or a typical baudrate such as 9600 or 115200. A bufferFlowAlgorithm can be optionally specified such as "tinyg" or "grbl" or write your own.
-send comPort [data] | Send your data to the serial port. Remember to send a newline in your data if your serial port expects it.
-sendnobuf comPort [data] | Send your data and bypass the bufferFlowAlgorithm if you specified one.
-close comPort | Close out your serial port
-bufferalgorithms | List the available bufferFlowAlgorithms on the server. You will get a list such as "default, tinyg"
-baudrates | List common baudrates such as 2400, 9600, 115200
+Command | Example | Description
+------- | ------- | -------
+list    |         | Lists all available serial ports on your device
+
+open portName baudRate [bufferFlowAlgorithm] | open /dev/ttyACM0 115200 tinyg | Opens a serial port. The comPort should be the Name of the port inside the list response such as COM2 or /dev/ttyACM0. The baudrate should be a rate from the baudrates command or a typical baudrate such as 9600 or 115200. A bufferFlowAlgorithm can be optionally specified such as "tinyg" or "grbl" or write your own.
+
+send portName data | send /dev/ttyACM0 G1 X10.5 Y2 F100\n | Send your data to the serial port. Remember to send a newline in your data if your serial port expects it.
+
+sendnobuf portName data | send COM22 {"qv":0}\n | Send your data and bypass the bufferFlowAlgorithm if you specified one.
+
+close portName | close COM1 | Close out your serial port
+
+bufferalgorithms | | List the available bufferFlowAlgorithms on the server. You will get a list such as "default, tinyg"
+
+baudrates | | List common baudrates such as 2400, 9600, 115200
 
 Revisions
 -------
 Changes in 1.3.2
 - Fixed analysis of incoming serial data due to some serial ports sending fragmented data.
-- A new command called sendnobuf was added so you can bypass the bufferflow algorithm. You use it by sending "sendnobuf com4 G0 X0 Y0" and it will jump ahead of the queue and go diretly to the TinyG without hesitation.
+- A new command called sendnobuf was added so you can bypass the bufferflow algorithm. This command only is worth using if you specified a bufflerFlowAlgorithm when you opened the serial port. You use it by sending "sendnobuf com4 G0 X0 Y0" and it will jump ahead of the queue and go diretly to the serial port without hesitation.
 - TinyG Bufferflow algorithm. 
 	- Looks for qr responses and if they are too low on the planner buffer will trigger a pause on send. 
 	- Looks for qr responses and if they are high enough to send again the bufferflow is unblocked.
@@ -84,6 +68,7 @@ Changes in 1.3.2
 	- When you send !~% it automatically is sent to TinyG without buffering so it essentially skips ahead of all other buffered commands. This mimics what TinyG does internally.
 	- If you ask qr reports to be turned off with a $qv=0 or {"qv":0} then bypassmode is entered whereby no blocking occurs on sending serial port commands.
 	- If you ask qr reports to be turned back on with $qv=1 (or 2 or 3) or {"qv":1} (or 2 or 3) then bypassmode is turned off.
+	- If a qr reponse is seen from TinyG then BypassMode is turned off automatically.
 
 Changes in 1.3
 - Added ability for buffer flow plugins. There is a new buffer flow plugin 
