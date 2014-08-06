@@ -5,7 +5,6 @@ import (
 	"log"
 	"regexp"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -18,7 +17,7 @@ type BufferflowTinyg struct {
 	sem          chan int // semaphore to wait on until given release
 	LatestData   string   // this holds the latest data across multiple serial reads so we can analyze it for qr responses
 	BypassMode   bool     // this means don't actually watch for qr responses until we know tinyg is in qr response mode
-	wg           sync.WaitGroup
+	//wg           sync.WaitGroup
 }
 
 var (
