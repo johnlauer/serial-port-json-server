@@ -216,33 +216,28 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 	p := &serport{sendBuffered: make(chan []byte, 256*100), sendNoBuf: make(chan []byte), portConf: conf, portIo: sp, BufferType: buftype}
 
 	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
-	if buftype != "" {
+	if buftype == "tinyg" {
 
-		if buftype == "tinyg" {
-			bw := &BufferflowTinyg{Name: "no name needed"}
-			bw.Init()
-			bw.Port = portname
-			p.bufferwatcher = bw
-		}
-		//p.bufferwatcher := &bufferflow{buffertype: buftype}
-		//p.bufferwatcher.buffertype = buftype
-
-		// could open the buffer thread here, or do it when this
-		// port is registered. the buffer thread will watch the writer
-		// and the reader. it will look at the content and decide
-		// if a pause must occur
-
-	} else {
-		// for now, just use a dummy pause type bufferflow object
-		// to test artificially a delay on the serial port write
-		//p.bufferwatcher.buffertype = "dummypause"
-		//p.bufferwatcher.BlockUntilReady()
-		//bw := &BufferflowDummypause{Name: "blah"}
-		bw := &BufferflowDefault{}
+		bw := &BufferflowTinyg{Name: "tinyg"}
+		bw.Init()
+		bw.Port = portname
 		p.bufferwatcher = bw
 
-		//p.bufferwatcher.Name = "blah2"
+	} else if buftype == "dummypause" {
 
+		// this is a dummy pause type bufferflow object
+		// to test artificially a delay on the serial port write
+		// it just pauses 3 seconds on each serial port write
+		bw := &BufferflowDummypause{}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
+
+	} else {
+		bw := &BufferflowDefault{}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
 	}
 
 	sh.register <- p
