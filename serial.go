@@ -37,13 +37,14 @@ type SpPortList struct {
 }
 
 type SpPortItem struct {
-	Name          string
-	Friendly      string
-	IsOpen        bool
-	Baud          int
-	RtsOn         bool
-	DtrOn         bool
-	BufferWatcher string
+	Name                      string
+	Friendly                  string
+	IsOpen                    bool
+	Baud                      int
+	RtsOn                     bool
+	DtrOn                     bool
+	BufferAlgorithm           string
+	AvailableBufferAlgorithms []string
 }
 
 var sh = serialhub{
@@ -208,7 +209,7 @@ func spList() {
 	spl := SpPortList{make([]SpPortItem, n, n)}
 	ctr := 0
 	for _, item := range list {
-		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false, ""}
+		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false, "", availableBufferAlgorithms}
 
 		// figure out if port is open
 		//spl.SerialPorts[ctr].IsOpen = false
@@ -220,7 +221,7 @@ func spList() {
 			spl.SerialPorts[ctr].Baud = myport.portConf.Baud
 			spl.SerialPorts[ctr].RtsOn = myport.portConf.RtsOn
 			spl.SerialPorts[ctr].DtrOn = myport.portConf.DtrOn
-			spl.SerialPorts[ctr].BufferWatcher = myport.BufferType
+			spl.SerialPorts[ctr].BufferAlgorithm = myport.BufferType
 		}
 		//ls += "{ \"name\" : \"" + item.Name + "\", \"friendly\" : \"" + item.FriendlyName + "\" },\n"
 		ctr++
@@ -335,7 +336,8 @@ func findPortByName(portname string) (*serport, bool) {
 }
 
 func spBufferAlgorithms() {
-	arr := []string{"default", "tinyg", "dummypause"}
+	//arr := []string{"default", "tinyg", "dummypause"}
+	arr := availableBufferAlgorithms
 	json := "{\"BufferAlgorithm\" : ["
 	for _, elem := range arr {
 		json += "\"" + elem + "\", "
