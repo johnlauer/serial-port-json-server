@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.3.1
+Version 1.3.2
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
@@ -41,17 +41,11 @@ Supported Commands
 Command | Example | Description
 ------- | ------- | -------
 list    |         | Lists all available serial ports on your device
-
 open portName baudRate [bufferFlowAlgorithm] | open /dev/ttyACM0 115200 tinyg | Opens a serial port. The comPort should be the Name of the port inside the list response such as COM2 or /dev/ttyACM0. The baudrate should be a rate from the baudrates command or a typical baudrate such as 9600 or 115200. A bufferFlowAlgorithm can be optionally specified such as "tinyg" or "grbl" or write your own.
-
 send portName data | send /dev/ttyACM0 G1 X10.5 Y2 F100\n | Send your data to the serial port. Remember to send a newline in your data if your serial port expects it.
-
 sendnobuf portName data | send COM22 {"qv":0}\n | Send your data and bypass the bufferFlowAlgorithm if you specified one.
-
 close portName | close COM1 | Close out your serial port
-
 bufferalgorithms | | List the available bufferFlowAlgorithms on the server. You will get a list such as "default, tinyg"
-
 baudrates | | List common baudrates such as 2400, 9600, 115200
 
 Revisions
