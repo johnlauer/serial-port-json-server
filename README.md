@@ -41,7 +41,7 @@ Supported Commands
 Command | Example | Description
 ------- | ------- | -------
 list    |         | Lists all available serial ports on your device
-open portName baudRate [bufferAlgorithm] | open /dev/ttyACM0 115200 tinyg | Opens a serial port. The comPort should be the Name of the port inside the list response such as COM2 or /dev/ttyACM0. The baudrate should be a rate from the baudrates command or a typical baudrate such as 9600 or 115200. A bufferAlgorithm can be optionally specified such as "tinyg" or "grbl" or write your own.
+open portName baudRate [bufferAlgorithm] | open /dev/ttyACM0 115200 tinyg | Opens a serial port. The comPort should be the Name of the port inside the list response such as COM2 or /dev/ttyACM0. The baudrate should be a rate from the baudrates command or a typical baudrate such as 9600 or 115200. A bufferAlgorithm can be optionally specified such as "tinyg" (or in the future "grbl" if somebody writes it) or write your own.
 send portName data | send /dev/ttyACM0 G1 X10.5 Y2 F100\n | Send your data to the serial port. Remember to send a newline in your data if your serial port expects it.
 sendnobuf portName data | send COM22 {"qv":0}\n | Send your data and bypass the bufferFlowAlgorithm if you specified one.
 close portName | close COM1 | Close out your serial port
@@ -52,6 +52,7 @@ Revisions
 -------
 Changes in 1.3.2
 - Fixed analysis of incoming serial data due to some serial ports sending fragmented data.
+- Added bufferalgorithms and baudrates commands
 - A new command called sendnobuf was added so you can bypass the bufferflow algorithm. This command only is worth using if you specified a bufflerFlowAlgorithm when you opened the serial port. You use it by sending "sendnobuf com4 G0 X0 Y0" and it will jump ahead of the queue and go diretly to the serial port without hesitation.
 - TinyG Bufferflow algorithm. 
 	- Looks for qr responses and if they are too low on the planner buffer will trigger a pause on send. 
