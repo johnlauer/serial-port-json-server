@@ -20,6 +20,15 @@ func getList() ([]OsSerialPort, os.SyscallError) {
 
 func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 
+	// this method panics a lot and i'm not sure why, just catch
+	// the panic and return empty list
+	defer func() {
+		if e := recover(); e != nil {
+			// e is the interface{} typed-value we passed to panic()
+			log.Println("Got panic: ", e) // Prints "Whoops: boom!"
+		}
+	}()
+
 	var err os.SyscallError
 
 	//var friendlyName string
