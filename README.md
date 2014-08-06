@@ -57,6 +57,33 @@ this Github project and all dependent projects.
 called serial-port-json-server
 9. Run it by typing ./serial-port-json-server
 
+Supported Commands
+-------
+
+Command | Description
+------- | -----------
+list    | Lists all available serial ports on your device
+open comPort baudRate [bufferFlowAlgorithm] | Opens a serial port. The comPort should be the Name of the port inside the list response such as COM2 or /dev/ttyACM0. The baudrate should be a rate from the baudrates command or a typical baudrate such as 9600 or 115200. A bufferFlowAlgorithm can be optionally specified such as "tinyg" or "grbl" or write your own.
+send comPort [data] | Send your data to the serial port. Remember to send a newline in your data if your serial port expects it.
+sendnobuf comPort [data] | Send your data and bypass the bufferFlowAlgorithm if you specified one.
+close comPort | Close out your serial port
+bufferalgorithms | List the available bufferFlowAlgorithms on the server. You will get a list such as "default, tinyg"
+baudrates | List common baudrates such as 2400, 9600, 115200
+
+Revisions
+-------
+Changes in 1.3.2
+- Fixed analysis of incoming serial data due to some serial ports sending fragmented data.
+- A new command called sendnobuf was added so you can bypass the bufferflow algorithm. You use it by sending "sendnobuf com4 G0 X0 Y0" and it will jump ahead of the queue and go diretly to the TinyG without hesitation.
+- TinyG Bufferflow algorithm. 
+	- Looks for qr responses and if they are too low on the planner buffer will trigger a pause on send. 
+	- Looks for qr responses and if they are high enough to send again the bufferflow is unblocked.
+	- If you pause with ! then the bufferflow also pauses.
+	- If you resume with ~ then the bufferflow also resumes.
+	- If you wipe the buffer with % then the bufferflow also wipes.
+	- When you send !~% it automatically is sent to TinyG without buffering so it essentially skips ahead of all other buffered commands. This mimics what TinyG does internally.
+	- If you ask qr reports to be turned off with a $qv=0 or {"qv":0} then bypassmode is entered whereby no blocking occurs on sending serial port commands.
+	- If you ask qr reports to be turned back on with $qv=1 (or 2 or 3) or {"qv":1} (or 2 or 3) then bypassmode is turned off.
 
 Changes in 1.3
 - Added ability for buffer flow plugins. There is a new buffer flow plugin 
