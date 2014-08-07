@@ -50,7 +50,11 @@ baudrates | | List common baudrates such as 2400, 9600, 115200
 
 Revisions
 -------
-Changes in 1.3.2
+Changes in 1.4
+- Added reporting on Queuing so you know what the state of the Serial Port JSON Server Queue is doing. The reason for this is to ensure your serial port commands don't get out of order you will want to make sure you write to the websocket and then wait for the {"Cmd":"Queued"} response. Then write your next command. This is necessary because when sending different frames across a websocket over the Internet, you can get packet retransmissions, and although you'll never lose your data, your serial commands could arrive at the server out of order. By watching that your command is queued, you are safe to send the next command. However, this can also slow things down, so now you can simply gang up multiple commands into one send and the Serial Port JSON Server will split them into separate sub-commands and tell you that it did in the queue and write reports.
+	- For example, a typical queue report looks like {"Cmd":"Queued","QCnt":61,"Type":["Buf"],"D":["{\"sr\":\"\"}\n"],"Port":"COM22"}. 
+	- If you send something like: send COM22 {"sr":""}\n{"qr":""}\n{"sr":""}\n{"qr":""}\n. You will get back a queue report like {"Cmd":"Queued","QCnt":4,"Type":["Buf","Buf","Buf","Buf"],"D":["{\"sr\":\"\"}\n","{\"qr\":\"\"}\n","{\"sr\":\"\"}\n","{\"qr\":\"\"}\n"],"Port":"COM22"}
+	- When two queue items are written to the serial port you will get back something like {"Cmd":"Write","QCnt":1,"D":"{\"qr\":\"\"}\n","Port":"COM22"}{"Cmd":"Write","QCnt":0,"D":"{\"sr\":\"\"}\n","Port":"COM22"}
 - Fixed analysis of incoming serial data due to some serial ports sending fragmented data.
 - Added bufferalgorithms and baudrates commands
 - A new command called sendnobuf was added so you can bypass the bufferflow algorithm. This command only is worth using if you specified a bufflerFlowAlgorithm when you opened the serial port. You use it by sending "sendnobuf com4 G0 X0 Y0" and it will jump ahead of the queue and go diretly to the serial port without hesitation.
