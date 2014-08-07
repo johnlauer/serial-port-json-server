@@ -54,8 +54,8 @@ var (
 )
 
 func (b *BufferflowTinyg) Init() {
-	b.StartSending = 16
-	b.StopSending = 10
+	b.StartSending = 14
+	b.StopSending = 12
 	b.sem = make(chan int)
 
 	// start tinyg out in bypass mode because we don't really
@@ -136,7 +136,7 @@ func (b *BufferflowTinyg) BlockUntilReady() bool {
 	} else {
 		// still yeild a bit cuz seeing we need to let tinyg
 		// have a chance to respond
-		seconds := 2 * time.Millisecond
+		seconds := 15 * time.Millisecond
 		log.Printf("BlockUntilReady() default yielding on send for TinyG for seconds:%v\n", seconds)
 		time.Sleep(seconds)
 	}

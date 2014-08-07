@@ -193,26 +193,32 @@ func (sh *serialhub) run() {
 				// do extra check to see if certain commands for this buffer type
 				// should skip the internal serial port buffering
 				// for example ! on tinyg and grbl should skip
+				typeBuf := "" // set in if stmt below for reporting afterwards
+
 				if wr.buffer {
 					bufferSkip := wr.p.bufferwatcher.SeeIfSpecificCommandsShouldSkipBuffer(cmd)
 					if bufferSkip {
 						log.Printf("Forcing this cmd to skip buffer. cmd:%v\n", cmd)
-						wr.buffer = false
+						//wr.buffer = false
+						typeBuf = "NoBuf"
+					} else {
+						typeBuf = "Buf"
 					}
-				}
-
-				typeBuf := "" // set in if stmt below for reporting afterwards
-
-				if wr.buffer {
-					//log.Println("Send was normal send, so sending to wr.p.sendBuffered")
-					//wr.p.sendBuffered <- []byte(cmd)
-					typeBuf = "Buf"
 				} else {
-					//log.Println("Send was sendnobuf, so sending to wr.p.sendNoBuf")
-					//wr.p.sendNoBuf <- []byte(cmd)
 					typeBuf = "NoBuf"
 				}
 
+				/*
+					if wr.buffer {
+						//log.Println("Send was normal send, so sending to wr.p.sendBuffered")
+						//wr.p.sendBuffered <- []byte(cmd)
+						typeBuf = "Buf"
+					} else {
+						//log.Println("Send was sendnobuf, so sending to wr.p.sendNoBuf")
+						//wr.p.sendNoBuf <- []byte(cmd)
+						typeBuf = "NoBuf"
+					}
+				*/
 				// increment queue counter for reporting
 				wr.p.itemsInBuffer++
 				log.Printf("itemsInBuffer:%v\n", wr.p.itemsInBuffer)
