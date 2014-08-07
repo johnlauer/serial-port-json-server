@@ -5,6 +5,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -64,7 +65,9 @@ func (b *BufferflowTinyg) Init() {
 	// the reason for this is if we think tinyg is going to send qr
 	// responses and we don't get them, we end up holding up all data
 	// and essentially break everything. so gotta really watch for this.
-	b.BypassMode = true
+	//b.BypassMode = true
+	// looking like bypassmode isn't very helpful
+	b.BypassMode = false
 }
 
 func (b *BufferflowTinyg) BlockUntilReady() bool {
@@ -76,6 +79,13 @@ func (b *BufferflowTinyg) BlockUntilReady() bool {
 		log.Printf("In BypassMode so won't watch for qr responses.")
 		return true
 	}
+
+	// during testing, try a super long pause
+	/*
+		seconds := 3 * time.Second
+		log.Printf("BlockUntilReady() default yielding on send for TinyG for seconds:%v\n", seconds)
+		time.Sleep(seconds)
+	*/
 
 	// We're in active buffer mode. Now we need to see if we've been asked to pause
 	// our sending by the OnIncomingData method
@@ -270,6 +280,39 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 
 	//time.Sleep(3000 * time.Millisecond)
 	log.Printf("OnIncomingData() end.\n")
+}
+
+// break commands into individual commands
+// so, for example, break on newlines to separate commands
+// or, in the case of ~% break those onto separate commands
+func (b *BufferflowTinyg) BreakApartCommands(cmd string) []string {
+	// add newline after !~%
+	reSingle := regexp.MustCompile("([!~%])")
+	cmd = reSingle.ReplaceAllString(cmd, "$1\n")
+	//re := regexp.MustCompile("\n")
+	//cmds := re.Split(cmd, -1)
+	cmds := strings.Split(cmd, "\n")
+	finalCmds := []string{}
+	for index, item := range cmds {
+		if reSingle.MatchString(item) {
+			log.Printf("Not re-adding newline cuz artificially added one earlier. item:%v\n", item)
+			finalCmds = append(finalCmds, item)
+			//} else if len(item) == 0 {
+			//	log.Printf("Skipping adding to final cmd cuz this is empty. item:%v\n", item)
+		} else {
+			//s := item
+			// should we add back our newline? do this if there are elements after us
+			if index < len(cmds)-1 {
+				// there are cmds after me, so add newline
+				log.Printf("Re-adding newline to item:%v\n", item)
+				s := item + "\n"
+				finalCmds = append(finalCmds, s)
+				log.Printf("New cmd item:%v\n", s)
+			}
+		}
+	}
+	log.Printf("Final array of cmds after BreakApartCommands(). finalCmds:%v\n", finalCmds)
+	return finalCmds
 }
 
 func (b *BufferflowTinyg) Pause() {

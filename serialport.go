@@ -18,6 +18,9 @@ type serport struct {
 	// just so we don't show scary error messages
 	isClosing bool
 
+	// counter incremented on queue, decremented on write
+	itemsInBuffer int
+
 	// buffered channel containing up to 25600 outbound messages.
 	sendBuffered chan []byte
 
@@ -28,6 +31,13 @@ type serport struct {
 	BufferType string
 	//bufferwatcher *BufferflowDummypause
 	bufferwatcher Bufferflow
+}
+
+type qwReport struct {
+	Cmd  string
+	QCnt int
+	D    string
+	Port string
 }
 
 type SpPortMessage struct {
@@ -61,7 +71,8 @@ func (p *serport) reader() {
 			//log.Print("The m obj struct is:")
 			//log.Print(m)
 
-			b, err := json.MarshalIndent(m, "", "\t")
+			//b, err := json.MarshalIndent(m, "", "\t")
+			b, err := json.Marshal(m)
 			if err != nil {
 				log.Println(err)
 				h.broadcastSys <- []byte("Error creating json on " + p.portConf.Name + " " +
@@ -120,7 +131,17 @@ func (p *serport) reader() {
 // this method runs as its own thread because it's instantiated
 // as a "go" method. so if it blocks inside, it is ok
 func (p *serport) writerBuffered() {
-	// this for loop blocks on p.send until that channel
+
+	// this method can panic if user closes serial port and something is
+	// in BlockUntilReady() and then a send occurs on p.sendNoBuf
+	defer func() {
+		if e := recover(); e != nil {
+			// e is the interface{} typed-value we passed to panic()
+			log.Println("Got panic: ", e) // Prints "Whoops: boom!"
+		}
+	}()
+
+	// this for loop blocks on p.sendBuffered until that channel
 	// sees something come in
 	for data := range p.sendBuffered {
 
@@ -132,6 +153,8 @@ func (p *serport) writerBuffered() {
 
 		if goodToGo == false {
 			log.Println("We got back from BlockUntilReady() but apparently we must cancel this cmd")
+			// since we won't get a buffer decrement in p.sendNoBuf, we must do it here
+			p.itemsInBuffer--
 		} else {
 			// send to the non-buffered serial port writer
 			log.Println("About to send to p.sendNoBuf channel")
@@ -150,7 +173,7 @@ func (p *serport) writerNoBuf() {
 	// sees something come in
 	for data := range p.sendNoBuf {
 
-		log.Printf("Got p.send. data:%v\n", string(data))
+		log.Printf("Got p.sendNoBuf. data:%v\n", string(data))
 
 		// we want to block here if we are being asked
 		// to pause. the problem is, how do we unblock
@@ -162,7 +185,18 @@ func (p *serport) writerNoBuf() {
 		// if we get here, we were able to write successfully
 		// to the serial port because it blocks until it can write
 
-		h.broadcastSys <- []byte("{\"Cmd\" : \"WriteComplete\", \"Bytes\" : " + strconv.Itoa(n2) + ", \"Port\" : \"" + p.portConf.Name + "\"}")
+		// decrement counter
+		p.itemsInBuffer--
+		log.Printf("itemsInBuffer:%v\n", p.itemsInBuffer)
+		//h.broadcastSys <- []byte("{\"Cmd\":\"Write\",\"QCnt\":" + strconv.Itoa(p.itemsInBuffer) + ",\"Byte\":" + strconv.Itoa(n2) + ",\"Port\":\"" + p.portConf.Name + "\"}")
+		qwr := qwReport{
+			Cmd:  "Write",
+			QCnt: p.itemsInBuffer,
+			D:    string(data),
+			Port: p.portConf.Name,
+		}
+		json, _ := json.Marshal(qwr)
+		h.broadcastSys <- json
 
 		log.Print("Just wrote ", n2, " bytes to serial: ", string(data))
 		//log.Print(n2)
@@ -207,7 +241,7 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		//log.Fatal(err)
 		log.Print("Error opening port " + err.Error())
 		//h.broadcastSys <- []byte("Error opening port. " + err.Error())
-		h.broadcastSys <- []byte("{\"Cmd\" : \"OpenFail\", \"Desc\" : \"Error opening port. " + err.Error() + "\", \"Port\" : \"" + conf.Name + "\", \"Baud\" : " + strconv.Itoa(conf.Baud) + " }")
+		h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Error opening port. " + err.Error() + "\",\"Port\":\"" + conf.Name + "\",\"Baud\":" + strconv.Itoa(conf.Baud) + "}")
 
 		return
 	}

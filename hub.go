@@ -41,7 +41,20 @@ func (h *hub) run() {
 			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"close [portName]\", \"bufferalgorithms\", \"baudrates\"]} ")
 		case c := <-h.unregister:
 			delete(h.connections, c)
-			close(c.send)
+			// put close in func cuz it was creating panics and want
+			// to isolate
+			func() {
+				// this method can panic if websocket gets disconnected
+				// from users browser and we see we need to unregister a couple
+				// of times, i.e. perhaps from incoming data from serial triggering
+				// an unregister. (NOT 100% sure why seeing c.send be closed twice here)
+				defer func() {
+					if e := recover(); e != nil {
+						log.Println("Got panic: ", e)
+					}
+				}()
+				close(c.send)
+			}()
 		case m := <-h.broadcast:
 			//log.Print("Got a broadcast")
 			//log.Print(m)
