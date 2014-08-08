@@ -48,6 +48,20 @@ close portName | close COM1 | Close out your serial port
 bufferalgorithms | | List the available bufferAlgorithms on the server. You will get a list such as "default, tinyg"
 baudrates | | List common baudrates such as 2400, 9600, 115200
 
+FAQ
+-------
+- Q: There are several Node.js serial port servers. Why not write this in Node.js instead of Go?
+
+- A: Because Go is a better solution for several reasons.
+	- Easier to install on your computer. Just download and run binary. (Node requires big install)
+	- It is multi-threaded which is key for a serial port websocket server (Node is single-threaded)
+	- It has a tiny memory footprint using about 3MB of RAM
+	- It is one clean compiled executable with no dependencies
+	- It makes very efficient use of RAM with amazing garbage collection
+	- It is super fast when running
+	- It launches super quick
+	- It is essentially C code without the pain of C code. Go has insanely amazing threading support called Channels. Node.js is single-threaded, so you can't take full advantage of the CPU's threading capabilities. Go lets you do this easily. A serial port server needs several threads. 1) Websocket thread for each connection. 2) Serial port thread for each serial device. Serial Port JSON Server allows you to bind as many serial port devices in parallel as you want. 3) A writer and reader thread for each serial port. 4) A buffering thread for each incoming message from the browser into the websocket 5) A buffering thread for messages back out from the server to the websocket to the browser. To achieve this in Node requires lots of callbacks. You also end up talking natively anyway to the serial port on each specific platform you're on, so you have to deal with the native code glued to Node.
+
 Revisions
 -------
 Changes in 1.4
