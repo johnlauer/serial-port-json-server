@@ -21,6 +21,11 @@ type BufferflowTinyg struct {
 	//wg           sync.WaitGroup
 }
 
+type DataPerLine struct {
+	P string
+	D string
+}
+
 var (
 	// the regular expression to find the qr value
 	// this regexp will find qr when in json mode or non-json mode on tinyg
@@ -87,14 +92,24 @@ func (b *BufferflowTinyg) BlockUntilReady() bool {
 		time.Sleep(seconds)
 	*/
 
-	// We're in active buffer mode. Now we need to see if we've been asked to pause
-	// our sending by the OnIncomingData method
+	// We're in active buffer mode i.e. not BypassMode.
+	// Now we need to see if we've been asked to pause
+	// our sending by the OnIncomingData method (or any other method or thread)
 	if b.Paused {
 		log.Println("It appears we are being asked to pause, so we will wait on b.sem")
-		//if b.sem != nil {
-		// we want to consume all signals on b.sem so that we actually
-		// block here rather than get an immediately queued signal coming in
-		// consume all stuff queued
+
+		// We are being asked to pause our sending of commands
+
+		// To fully pause, we want to consume all signals on b.sem so that we actually
+		// block here rather than get an immediately queued signal coming in.
+		// This can be confusing why we have to consume all the b.sem signals first
+		// before we can pause. here's why. other parts of the spjs can send to us
+		// that we can unblock now. in fact, when the incoming qr reports are analyzed,
+		// any qr value above our startsending threshold will fire off a b.sem signal.
+		// it's as if the incoming thread is overly telling us "yes, you can send again"
+		// so when we then get a b.Paused request, we need to make sure we truly pause.
+		// the way to do this is to throw away all the "yes, you can send again" signals
+		// so that we block until we see a brand spanking new "yes, you can send again"
 		func() {
 			ctr := 0
 
@@ -114,28 +129,44 @@ func (b *BufferflowTinyg) BlockUntilReady() bool {
 			}
 			log.Printf("Done consuming b.sem queue so we're good to block on it now. ctr:%v\n", ctr)
 		}()
+		// ok, all b.sem signals are now consumed into la-la land
+
+		// SUPER IMPORTANT
+		// This block at <-b.sem is the most significant item in the buffer flow
+		// Since we saw we were being asked to pause from b.Paused
+		// We need to actually implement the pause here using Go's channels
+		// which are super bad-ass. We know the serial writing is its own thread
+		// so if we block it here, the rest of the serial port json server will still
+		// run. it's only the serial sending that will get blocked. we can then unblock
+		// from other parts of the code by just sending b.sem <- 1 from anywhere and
+		// it will come back here and unblock. So, we'll most likely unblock from the
+		// serial reading thread when it sees that a qr report came in saying there's
+		// room in the planner buffer again
 		log.Println("Blocking on b.sem until told from OnIncomingData to go")
 		unblockType, ok := <-b.sem // will block until told from OnIncomingData to go
-		//close(b.sem)
-		//b.sem = nil // set semaphore to null cuz don't need it now
 
 		log.Printf("Done blocking cuz got b.sem semaphore release. ok:%v, unblockType:%v\n", ok, unblockType)
 
+		// we get an unblockType of 1 for normal unblocks
+		// we get an unblockType of 2 when we're being asked to wipe the buffer, i.e. from a % cmd
 		if unblockType == 2 {
 			log.Println("This was an unblock of type 2, which means we're being asked to wipe internal buffer. so return false.")
+			// returning false asks the calling method to wipe the serial send once
+			// this function returns
 			return false
 		}
-
-		/*
-			for b.Paused {
-				log.Println("We are paused. Yeilding send.")
-				time.Sleep(5 * time.Millisecond)
-			}
-		*/
 
 	} else {
 		// still yeild a bit cuz seeing we need to let tinyg
 		// have a chance to respond
+		// IMPORTANT: this value here seems to massively influence whether
+		// we get lost lines of gcode or not when sending to the serial port
+		// it seems that each gcode line must yield a bit to give the TinyG
+		// a chance to send us qr reports within a window where we didn't pound it
+		// too hard. You want this value to not be too high and not be too low
+		// i found that 7ms works, but was getting the planner buffer to perhaps a 2
+		// i found that 10ms works as well, with planner buffer getting to a 3 at its lowest
+		// 15ms seems safe and doesn't seem to starve the planner buffer
 		seconds := 15 * time.Millisecond
 		log.Printf("BlockUntilReady() default yielding on send for TinyG for seconds:%v\n", seconds)
 		time.Sleep(seconds)
@@ -172,8 +203,7 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 	// so analyze all of them except the last line
 	for index, element := range arrLines[:len(arrLines)-1] {
 		log.Printf("Working on element:%v, index:%v", element, index)
-		//if re.Match([]byte(data)) {
-		// see if there is a qr response in our large LatestData buffer
+
 		if re.MatchString(element) {
 			// we have a qr value
 
@@ -197,21 +227,27 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 					}
 
 					if qr <= b.StopSending {
-						//if b.sem == nil {
-						log.Println("qr is below stopsending threshold, so simply setting b.Paused to true so BlockUntilReady() sees we are paused")
-						//b.sem = make(chan int)
-						//} else {
-						//log.Println("qr is below stopsending, but b.sem seems to already be in action")
-						//}
-						b.Paused = true
-						//b.wg.Add(1)
 
+						// TinyG is below our planner buffer threshold, better
+						// stop sending to it
+						log.Println("qr is below stopsending threshold, so simply setting b.Paused to true so BlockUntilReady() sees we are paused")
+						b.Paused = true
 						//log.Println("Paused sending gcode")
+
 					} else if qr >= b.StartSending {
-						//if b.sem != nil {
+
+						// TinyG has room in its buffer, remove the pause and
+						// start sending in commands again
 						b.Paused = false
 						log.Println("qr is above startsending, so we will send signal to b.sem to unpause the BlockUntilReady() thread")
 						go func() {
+							// this method is pretty key
+							// we run this asychronously, i.e. it's own thread, that's why
+							// you see go func() because that go keyword launches this
+							// function as its own thread. we get to tell the BlockUntilReady()
+							// method to stop blocking by sending b.sem <- 1 to it
+							// if you think about it, because we can start sending, we
+							// need to unblock the sending
 							gcodeline := element
 
 							log.Printf("StartSending Semaphore goroutine created for qr gcodeline:%v\n", gcodeline)
@@ -225,21 +261,8 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 							defer func() {
 								gcodeline := gcodeline
 								log.Printf("StartSending Semaphore just got consumed by the BlockUntilReady() thread for the qr gcodeline:%v\n", gcodeline)
-								//log.Println("Closing b.sem and setting to nil")
-								//close(b.sem)
-								//b.sem = nil
 							}()
-							//close(b.sem)
 						}()
-						//}
-						/*
-							if b.Paused {
-								b.Paused = false
-								log.Println("Buffer is paused, but qr shows room, so Sending semaphore to BlockUntilReady to release block")
-								b.sem <- 1 // send channel a val to trigger the unblocking in BlockUntilReady()
-							}
-							log.Println("Started sending gcode again")
-						*/
 					} else {
 						log.Printf("In a middle state where paused is:%v, qr:%v, watching for the buffer planner to go high or low.\n", b.Paused, qr)
 					}
@@ -272,6 +295,17 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 			log.Println("Sent semaphore unblock in case anything was waiting since user entered bypassmode")
 		}
 
+		// if we are handling sending the broadcast back to the client
+		// from our buffer flow implementation, rather than letting the base
+		// implementation of serial port json server do it, then send that
+		// broadcast here. however, make sure you told spjs that you were
+		// handling the data instead
+		m := DataPerLine{b.Port, element + "\n"}
+		bm, err := json.Marshal(m)
+		if err == nil {
+			h.broadcastSys <- bm
+		}
+
 	} // for loop
 
 	// now wipe the LatestData to only have the last line that we did not analyze
@@ -289,18 +323,13 @@ func (b *BufferflowTinyg) BreakApartCommands(cmd string) []string {
 	// add newline after !~%
 	reSingle := regexp.MustCompile("([!~%])")
 	cmd = reSingle.ReplaceAllString(cmd, "$1\n")
-	//re := regexp.MustCompile("\n")
-	//cmds := re.Split(cmd, -1)
 	cmds := strings.Split(cmd, "\n")
 	finalCmds := []string{}
 	for index, item := range cmds {
 		if reSingle.MatchString(item) {
 			log.Printf("Not re-adding newline cuz artificially added one earlier. item:%v\n", item)
 			finalCmds = append(finalCmds, item)
-			//} else if len(item) == 0 {
-			//	log.Printf("Skipping adding to final cmd cuz this is empty. item:%v\n", item)
 		} else {
-			//s := item
 			// should we add back our newline? do this if there are elements after us
 			if index < len(cmds)-1 {
 				// there are cmds after me, so add newline
@@ -409,22 +438,17 @@ func (b *BufferflowTinyg) ReleaseLock() {
 		}()
 	}()
 
-	//if b.Paused {
-	//	b.Paused = false
+}
 
-	/*
-		//if b.sem != nil {
-			go func() {
-				b.sem <- 2 // send a 2 meaning unblock but cancel subsequent actions
-				defer func() {
-					log.Println("Closing b.sem from ReleaseLock() and setting to nil")
-					//close(b.sem)
-					//b.sem = nil
-				}()
-				//close(b.sem)
-			}()
-			log.Println("b.sem was not nil, so sent semaphore release")
-		}
-	*/
-	//}
+func (b *BufferflowTinyg) IsBufferGloballySendingBackIncomingData() bool {
+	// we want to send back incoming data as per line data
+	// rather than having the default spjs implemenation that sends back data
+	// as it sees it. the reason is that we were getting packets out of order
+	// on the browser on bad internet connections. that will still happen with us
+	// sending back per line data, but at least it will allow the browser to parse
+	// correct json now.
+	// TODO: The right way to solve this is to watch for an acknowledgement
+	// from the browser and queue stuff up until the acknowledgement and then
+	// send the full blast of ganged up data
+	return true
 }
