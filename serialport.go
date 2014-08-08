@@ -66,23 +66,33 @@ func (p *serport) reader() {
 			//p.b.bufferwatcher..OnIncomingData(data)
 			p.bufferwatcher.OnIncomingData(data)
 
-			//m := SpPortMessage{"Alice", "Hello"}
-			m := SpPortMessage{p.portConf.Name, data}
-			//log.Print("The m obj struct is:")
-			//log.Print(m)
+			// see if the OnIncomingData handled the broadcast back
+			// to the user. this option was added in case the OnIncomingData wanted
+			// to do something fancier or implementation specific, i.e. TinyG Buffer
+			// actually sends back data on a perline basis rather than our method
+			// where we just send the moment we get it. the reason for this is that
+			// the browser was sometimes getting back packets out of order which
+			// of course would screw things up when parsing
 
-			//b, err := json.MarshalIndent(m, "", "\t")
-			b, err := json.Marshal(m)
-			if err != nil {
-				log.Println(err)
-				h.broadcastSys <- []byte("Error creating json on " + p.portConf.Name + " " +
-					err.Error() + " The data we were trying to convert is: " + string(ch[:n]))
-				break
+			if p.bufferwatcher.IsBufferGloballySendingBackIncomingData() == false {
+				//m := SpPortMessage{"Alice", "Hello"}
+				m := SpPortMessage{p.portConf.Name, data}
+				//log.Print("The m obj struct is:")
+				//log.Print(m)
+
+				//b, err := json.MarshalIndent(m, "", "\t")
+				b, err := json.Marshal(m)
+				if err != nil {
+					log.Println(err)
+					h.broadcastSys <- []byte("Error creating json on " + p.portConf.Name + " " +
+						err.Error() + " The data we were trying to convert is: " + string(ch[:n]))
+					break
+				}
+				//log.Print("Printing out json byte data...")
+				//log.Print(string(b))
+				h.broadcastSys <- b
+				//h.broadcastSys <- []byte("{ \"p\" : \"" + p.portConf.Name + "\", \"d\": \"" + string(ch[:n]) + "\" }\n")
 			}
-			//log.Print("Printing out json byte data...")
-			//log.Print(string(b))
-			h.broadcastSys <- b
-			//h.broadcastSys <- []byte("{ \"p\" : \"" + p.portConf.Name + "\", \"d\": \"" + string(ch[:n]) + "\" }\n")
 		}
 
 		if p.isClosing {
