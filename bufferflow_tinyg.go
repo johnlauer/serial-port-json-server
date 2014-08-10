@@ -59,8 +59,8 @@ var (
 )
 
 func (b *BufferflowTinyg) Init() {
-	b.StartSending = 14
-	b.StopSending = 12
+	b.StartSending = 20
+	b.StopSending = 18
 	b.sem = make(chan int)
 
 	// start tinyg out in bypass mode because we don't really
@@ -167,7 +167,7 @@ func (b *BufferflowTinyg) BlockUntilReady() bool {
 		// i found that 7ms works, but was getting the planner buffer to perhaps a 2
 		// i found that 10ms works as well, with planner buffer getting to a 3 at its lowest
 		// 15ms seems safe and doesn't seem to starve the planner buffer
-		seconds := 15 * time.Millisecond
+		seconds := 30 * time.Millisecond
 		log.Printf("BlockUntilReady() default yielding on send for TinyG for seconds:%v\n", seconds)
 		time.Sleep(seconds)
 	}
@@ -176,7 +176,8 @@ func (b *BufferflowTinyg) BlockUntilReady() bool {
 }
 
 func (b *BufferflowTinyg) OnIncomingData(data string) {
-	log.Printf("OnIncomingData() start. data:%v\n", data)
+	//log.Printf("OnIncomingData() start. data:%v\n", data)
+	log.Printf("OnIncomingData() start\n", data)
 	// we need to queue up data since it comes in fragmented
 	// and wait until we see a newline to analyze if there
 	// is a qr value
@@ -184,7 +185,7 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 
 	// now split on newline
 	arrLines := reNewline.Split(b.LatestData, -1)
-	log.Printf("arrLines:%v\n", arrLines)
+	//log.Printf("arrLines:%v\n", arrLines)
 	if len(arrLines) > 1 {
 		// that means we found a newline and have 2 or greater array values
 		// so we need to analyze our arrLines[] lines but keep last line
