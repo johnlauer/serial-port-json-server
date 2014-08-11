@@ -40,7 +40,7 @@ type DataPerLine struct {
 func (b *BufferflowTinyg) Init() {
 
 	/* Slot Approach */
-	b.SlotMax = 2 // at most queue up 2 slots, i.e. 2 gcode commands
+	b.SlotMax = 4 // at most queue up 2 slots, i.e. 2 gcode commands
 	b.SlotCtr = 0 // 0 indicates no gcode lines have been queued into tinyg
 	// the regular expression to turn off the pause
 	// this regexp will find the r:null response which indicates
@@ -77,7 +77,7 @@ func (b *BufferflowTinyg) Init() {
 
 	// we split the incoming data on newline using this regexp
 	// tinyg seems to only send \n but look for \n\r optionally just in case
-	b.reNewline, _ = regexp.Compile("\\n\\r{0,1}")
+	b.reNewline, _ = regexp.Compile("\\r{0,1}\\n")
 
 	// Look for qr's being turned off by user to auto turn-on BypassMode
 	/*
@@ -103,7 +103,7 @@ func (b *BufferflowTinyg) Init() {
 
 // Slot counter approach
 func (b *BufferflowTinyg) BlockUntilReady(cmd string) bool {
-	log.Printf("BlockUntilReady() slot ctr approach start\n")
+	log.Printf("BlockUntilReady() slot ctr approach start. SlotCtr:%v, b.Paused:%v\n", b.SlotCtr, b.Paused)
 	//log.Printf("buffer:%v\n", b)
 
 	// If we're in BypassMode then just return here so we do no blocking
@@ -190,7 +190,7 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string) bool {
 		//seconds := 50 * time.Millisecond
 		//seconds := b.PauseOnEachSend * time.Millisecond
 		log.Printf("BlockUntilReady() default yielding on send for TinyG for seconds:%v\n", b.PauseOnEachSend)
-		time.Sleep(b.PauseOnEachSend)
+		//time.Sleep(b.PauseOnEachSend)
 	}
 
 	// increment slot counter because we are now going to SEND this command
@@ -200,7 +200,10 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string) bool {
 	// test for cmds that won't have an r response, and in that case, don't expect it, don't
 	// pause on it, and don't increment slot ctr
 	if b.reCmdsWithNoRResponse.MatchString(cmd) {
-		log.Printf("We have a command that gets no r:{} response back, so not increment slot counter.\n")
+		log.Printf("We have a !~% command that gets no r:{} response back, so not increment slot counter.\n")
+		//} else if b.reNewline.MatchString(cmd) {
+	} else if cmd == "\n" || cmd == "\r\n" {
+		log.Printf("We have a newline command that gets no r:{} response back, so not increment slot counter.\n")
 	} else {
 		b.SlotCtr++
 		log.Printf("Incremented slot counter.\n")
