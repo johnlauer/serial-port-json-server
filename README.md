@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.4
+Version 1.5
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
@@ -64,6 +64,9 @@ FAQ
 
 Revisions
 -------
+Changes in 1.5
+- For TinyG buffer, moved to slot counter approach. The buffer planner approach was causing G2/G3 commands to overflow the buffer because the round-trip time was too off with reading QR responses. So, moved to a 4 slot buffer approach. Jogging is still a bit rough in this approach, but that can get tweaked. The new slot approach is more like counting serial buffer queue items. SPJS sends up to 4 commands and then waits for a r:{} json response. It has intelligence to know if certain commands won't get a response like !~% or newlines, so it doesn't look for slot responses and just blindly sends. The only danger is if there are 4 really long lines of Gcode that surpass the 254 bytes in the serial buffer then we could overflow. Could add trapping for that.
+
 Changes in 1.4
 - Added reporting on Queuing so you know what the state of the Serial Port JSON Server Queue is doing. The reason for this is to ensure your serial port commands don't get out of order you will want to make sure you write to the websocket and then wait for the {"Cmd":"Queued"} response. Then write your next command. This is necessary because when sending different frames across a websocket over the Internet, you can get packet retransmissions, and although you'll never lose your data, your serial commands could arrive at the server out of order. By watching that your command is queued, you are safe to send the next command. However, this can also slow things down, so now you can simply gang up multiple commands into one send and the Serial Port JSON Server will split them into separate sub-commands and tell you that it did in the queue and write reports.
 	- For example, a typical queue report looks like {"Cmd":"Queued","QCnt":61,"Type":["Buf"],"D":["{\"sr\":\"\"}\n"],"Port":"COM22"}. 
