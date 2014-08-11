@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.4
+Version 1.5
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
@@ -48,8 +48,25 @@ close portName | close COM1 | Close out your serial port
 bufferalgorithms | | List the available bufferAlgorithms on the server. You will get a list such as "default, tinyg"
 baudrates | | List common baudrates such as 2400, 9600, 115200
 
+FAQ
+-------
+- Q: There are several Node.js serial port servers. Why not write this in Node.js instead of Go?
+
+- A: Because Go is a better solution for several reasons.
+	- Easier to install on your computer. Just download and run binary. (Node requires big install)
+	- It is multi-threaded which is key for a serial port websocket server (Node is single-threaded)
+	- It has a tiny memory footprint using about 3MB of RAM
+	- It is one clean compiled executable with no dependencies
+	- It makes very efficient use of RAM with amazing garbage collection
+	- It is super fast when running
+	- It launches super quick
+	- It is essentially C code without the pain of C code. Go has insanely amazing threading support called Channels. Node.js is single-threaded, so you can't take full advantage of the CPU's threading capabilities. Go lets you do this easily. A serial port server needs several threads. 1) Websocket thread for each connection. 2) Serial port thread for each serial device. Serial Port JSON Server allows you to bind as many serial port devices in parallel as you want. 3) A writer and reader thread for each serial port. 4) A buffering thread for each incoming message from the browser into the websocket 5) A buffering thread for messages back out from the server to the websocket to the browser. To achieve this in Node requires lots of callbacks. You also end up talking natively anyway to the serial port on each specific platform you're on, so you have to deal with the native code glued to Node.
+
 Revisions
 -------
+Changes in 1.5
+- For TinyG buffer, moved to slot counter approach. The buffer planner approach was causing G2/G3 commands to overflow the buffer because the round-trip time was too off with reading QR responses. So, moved to a 4 slot buffer approach. Jogging is still a bit rough in this approach, but that can get tweaked. The new slot approach is more like counting serial buffer queue items. SPJS sends up to 4 commands and then waits for a r:{} json response. It has intelligence to know if certain commands won't get a response like !~% or newlines, so it doesn't look for slot responses and just blindly sends. The only danger is if there are 4 really long lines of Gcode that surpass the 254 bytes in the serial buffer then we could overflow. Could add trapping for that.
+
 Changes in 1.4
 - Added reporting on Queuing so you know what the state of the Serial Port JSON Server Queue is doing. The reason for this is to ensure your serial port commands don't get out of order you will want to make sure you write to the websocket and then wait for the {"Cmd":"Queued"} response. Then write your next command. This is necessary because when sending different frames across a websocket over the Internet, you can get packet retransmissions, and although you'll never lose your data, your serial commands could arrive at the server out of order. By watching that your command is queued, you are safe to send the next command. However, this can also slow things down, so now you can simply gang up multiple commands into one send and the Serial Port JSON Server will split them into separate sub-commands and tell you that it did in the queue and write reports.
 	- For example, a typical queue report looks like {"Cmd":"Queued","QCnt":61,"Type":["Buf"],"D":["{\"sr\":\"\"}\n"],"Port":"COM22"}. 
