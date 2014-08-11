@@ -159,7 +159,7 @@ func (p *serport) writerBuffered() {
 
 		// we want to block here if we are being asked
 		// to pause.
-		goodToGo := p.bufferwatcher.BlockUntilReady()
+		goodToGo := p.bufferwatcher.BlockUntilReady(string(data))
 
 		if goodToGo == false {
 			log.Println("We got back from BlockUntilReady() but apparently we must cancel this cmd")
