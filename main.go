@@ -16,8 +16,12 @@ var (
 	version = "1.5"
 	addr    = flag.String("addr", ":8989", "http service address")
 	assets  = flag.String("assets", defaultAssetPath(), "path to assets")
+    verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 )
+
+type NullWriter int
+func (NullWriter) Write([]byte) (int, error) { return 0, nil }
 
 func defaultAssetPath() string {
 	//p, err := build.Default.Import("gary.burd.info/go-websocket-chat", "", build.FindOnly)
@@ -43,6 +47,12 @@ func main() {
 	log.Println("Version:" + version)
 	log.Print("Started server and websocket on localhost" + f.Value.String())
 	//homeTempl = template.Must(template.ParseFiles(filepath.Join(*assets, "home.html")))
+
+    if !*verbose{
+        log.Println("Verbose mode not specified, stopping all further logging")
+        log.SetOutput(new(NullWriter)) //route all logging to nullwriter
+    }
+    
 
 	// launch the hub routine which is the singleton for the websocket server
 	go h.run()

@@ -277,7 +277,15 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		bw.Port = portname
 		p.bufferwatcher = bw
 
-	} else {
+	} else if buftype == "grbl" {
+		// this is a dummy pause type bufferflow object
+		// to test artificially a delay on the serial port write
+		// it just pauses 3 seconds on each serial port write
+		bw := &BufferflowGrbl{}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
+	}else {
 		bw := &BufferflowDefault{}
 		bw.Init()
 		bw.Port = portname
