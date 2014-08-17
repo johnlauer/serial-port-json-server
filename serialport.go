@@ -105,11 +105,14 @@ func (p *serport) reader() {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			// hit end of file
 			log.Println("Hit end of file on serial port")
+			h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got EOF (End of File) on port which usually means another app other than Serial Port JSON Server is locking your port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
+
 		}
 		if err != nil {
 			log.Println(err)
 			h.broadcastSys <- []byte("Error reading on " + p.portConf.Name + " " +
 				err.Error() + " Closing port.")
+			h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got error reading on port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
 			break
 		}
 
