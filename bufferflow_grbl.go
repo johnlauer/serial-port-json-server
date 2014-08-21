@@ -5,7 +5,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
-	//"time"
+	"time"
 	"strings"
 )
 
@@ -19,7 +19,6 @@ type BufferflowGrbl struct {
 	sem chan int
 	LatestData string
 	version string
-	ignore_ok bool
 
 	reNewLine *regexp.Regexp
 	re *regexp.Regexp
@@ -34,25 +33,39 @@ func (b *BufferflowGrbl) Init() {
 	log.Println("Initting GRBL buffer flow")
 	b.BufferMax = 128 //max buffer size 128 bytes
 	b.BufferSize = 0 //initialize buffer at zero bytes
-	b.ignore_ok = false //set ignore ok variable false until a status report is received
 
 	//create channels
 	b.sem = make(chan int)
 
 	//define regex
 	b.reNewLine, _ = regexp.Compile("\\r{0,1}\\n{1,2}")  //\\r{0,1}
-	b.re, _ = regexp.Compile("^[ok|error]")
+	b.re, _ = regexp.Compile("(ok|error)")
 	b.initline, _ = regexp.Compile("Grbl") 
 	b.qry, _ = regexp.Compile("\\?")
 	b.rpt, _ = regexp.Compile("^<")
+
+	//build an interval loop at 250ms to query status
+	ticker := time.NewTicker(250 * time.Millisecond)
+	quit := make(chan struct{})
+	go func() {
+	    for {
+	       select {
+	        case <- ticker.C:
+	            b.rptQuery()
+	        case <- quit:
+	            ticker.Stop()
+	            return
+	        }
+	    }
+	 }()
 }
 
 func (b *BufferflowGrbl) BlockUntilReady(cmd string) bool {
 	log.Printf("BlockUntilReady() start\n")
 
-	if b.qry.MatchString(cmd){
-		return true //return if cmd is a query request, even if buffer is paused
-	}
+	//if b.qry.MatchString(cmd){
+	//	return true //return if cmd is a query request, even if buffer is paused
+	//}
 
 	//Here we add the length of the new command to the buffer size and append the length
 	//to the buffer array.  Check if buffersize > buffermax and if so we pause and await free space before
@@ -106,20 +119,20 @@ func (b *BufferflowGrbl) BlockUntilReady(cmd string) bool {
 			// this function returns
 			return false
 		}
-	} //else {
-		//seconds := 15 * time.Millisecond
-		//log.Printf("BlockUntilReady() default yielding on send for TinyG for seconds:%v\n", seconds)
-		//time.Sleep(seconds)
-	//}
+	} 
+
 	log.Printf("BlockUntilReady() end\n")
 	
 	return true
 }
 
 func (b *BufferflowGrbl) OnIncomingData(data string) {
-	log.Printf("OnIncomingData() start. data:%v\n", data)
+	log.Printf("OnIncomingData() start. data:%q\n", data)
 
 	b.LatestData += data
+
+	//it was found ok was only received with status responses until the grbl buffer is full.
+	//b.LatestData = regexp.MustCompile(">\\r\\nok").ReplaceAllString(b.LatestData, ">") //remove oks from status responses
 
 	arrLines := b.reNewLine.Split(b.LatestData, -1)
 	log.Printf("arrLines:%v\n", arrLines)
@@ -143,18 +156,10 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 	for index, element := range arrLines[:len(arrLines)-1] {
 		log.Printf("Working on element:%v, index:%v", element, index)
 
-		//if we are supposed to ignore the next 'ok', set flag back to false and suppress output to the client
-		//(we are doing this so ok responses for an endless number of queries are not confused with actual buffer actions being completed)
-		if b.ignore_ok{
-			b.ignore_ok = false
-			log.Printf("Ok Ignored.  Reset to false")
-			continue //skip this element and move on to the next (if any).  don't pass info back to client
-		}
-
 		//check for 'ok' or 'error' response indicating a gcode line has been processed
 		if b.re.MatchString(element){
+
 			if b.BufferSizeArray != nil{
-				
 				b.BufferSize -= b.BufferSizeArray[0]
 				
 				if len(b.BufferSizeArray) > 1{
@@ -192,9 +197,6 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 			go func(){
 				b.sem <- 2 //since grbl was just initialized or reset, clear buffer
 			}()
-		} else if b.rpt.MatchString(element){
-			log.Printf("Ignoring the next 'ok' line, this was a status report: " + element)
-			b.ignore_ok = true //return report to client, ignore next ok line.
 		}
 
 
@@ -218,28 +220,25 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 func (b *BufferflowGrbl) BreakApartCommands(cmd string) []string {
 
 	// add newline after !~%
-	
-	//reSingle := regexp.MustCompile("([!~\\?])") //removed % from tinyg example
-	//cmd = reSingle.ReplaceAllString(cmd, "$1\n")  
+	log.Printf("Command Before Break-Apart: %q\n", cmd)
+
 	cmds := strings.Split(cmd, "\n")
 	finalCmds := []string{}
 	for _ , item := range cmds {
-		//if reSingle.MatchString(item) {
-		//	log.Printf("Not re-adding newline cuz artificially added one earlier. item:%v\n", item)
-		//	finalCmds = append(finalCmds, item)
-		//} else {
-			// should we add back our newline? do this if there are elements after us
-			//if index < len(cmds)-1 {
-				// there are cmds after me, so add newline
-		log.Printf("Re-adding newline to item:%v\n", item)
-		s := item + "\n"
-		finalCmds = append(finalCmds, s)
-		log.Printf("New cmd item:%v\n", s)
-			//}
-		//}
+
+		if item == "?"{
+			log.Printf("Query added without newline: %q\n",item)
+			finalCmds = append(finalCmds, item) //append query request without newline character
+		}else if item != ""{
+			log.Printf("Re-adding newline to item:%v\n", item)
+			s := item + "\n"
+			finalCmds = append(finalCmds, s)
+			log.Printf("New cmd item:%v\n", s)
+		}
+
 	}
 	log.Printf("Final array of cmds after BreakApartCommands(). finalCmds:%v\n", finalCmds)
-	
+
 	return finalCmds
 	//return []string{cmd} //do not process string
 }
@@ -289,10 +288,10 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) bool
 }
 
 func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bool {
-	// remove comments
+
 	cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
 	cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
-	if match, _ := regexp.MatchString("[~%]", cmd); match {
+	if match, _ := regexp.MatchString("[~]", cmd); match {
 		log.Printf("Found cmd that should unpause buffer. cmd:%v\n", cmd)
 		return true
 	}
@@ -300,14 +299,13 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bo
 }
 
 func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool {
-	// remove comments
-	/* I THINK THIS WE SHOULD BE CHECKING FOR A CTRL+X SOFT RESET HERE, NEED TO CONFIRM
+
 	cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
 	cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
-	if match, _ := regexp.MatchString("[%]", cmd); match {
+	if match, _ := regexp.MatchString("(\u0018)", cmd); match {
 		log.Printf("Found cmd that should wipe out and reset buffer. cmd:%v\n", cmd)
 		return true
-	}*/
+	}
 	return false
 }
 
@@ -331,4 +329,11 @@ func (b *BufferflowGrbl) ReleaseLock() {
 func (b *BufferflowGrbl) IsBufferGloballySendingBackIncomingData() bool {
 	//telling json server that we are handling client responses
 	return true
+}
+
+//Use this function to open a connection, write directly to serial port and close connection.
+//This is used for sending query requests outside of the normal buffered operations that will pause to wait for room in the grbl buffer
+//'?' is asynchronous to the normal buffer load and does not need to be paused when buffer full
+func (b *BufferflowGrbl) rptQuery(){
+	spWrite("sendnobuf " + b.Port + " ?")
 }
