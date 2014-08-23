@@ -85,7 +85,7 @@ FAQ
 Revisions
 -------
 Changes in 1.6
-- Logging is now off by default so Raspberry Pi runs cleaner. The immense amount of logging was dragging the Raspi down. Should help on BeagleBone Black as well. Makes SPJS run more efficient on powerful systems too like Windows, Mac, and Linux. You can turn on logging by issuing a -v on the command line.
+- Logging is now off by default so Raspberry Pi runs cleaner. The immense amount of logging was dragging the Raspi down. Should help on BeagleBone Black as well. Makes SPJS run more efficient on powerful systems too like Windows, Mac, and Linux. You can turn on logging by issuing a -v on the command line. This fix by Jarret Luft.
 - Added EOF extra checking for Linux serial ports that seem to return an EOF on a new connect and thus the port was prematurely closing. Thanks to Yiannis Mandravellos for finding the bug and fixing it.
 - Added a really nice Grbl bufferAlgorithm which was written by Jarret Luft who is the creator of the Grbl workspace in ChiliPeppr.
 	- The buffer counts each line of gcode being sent to Grbl up to 127 bytes and then doesn't send anymore data to Grbl until it sees an OK or ERROR response from Grbl indicating the command was processed. For each OK|ERROR the buffer decrements the counter to see how much more room is avaialble. If the next Gcode command can fit it is sent immediately in.
