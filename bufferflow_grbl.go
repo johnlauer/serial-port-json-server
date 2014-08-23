@@ -19,6 +19,7 @@ type BufferflowGrbl struct {
 	sem chan int
 	LatestData string
 	version string
+	quit chan int
 
 	reNewLine *regexp.Regexp
 	re *regexp.Regexp
@@ -28,10 +29,10 @@ type BufferflowGrbl struct {
 }
 
 func (b *BufferflowGrbl) Init() {
-	b.Paused = true //set pause true until initline received indicating grbl has initialized
+	b.Paused = false //set pause true until initline received indicating grbl has initialized
 
 	log.Println("Initting GRBL buffer flow")
-	b.BufferMax = 128 //max buffer size 128 bytes
+	b.BufferMax = 127 //max buffer size 127 bytes available
 	b.BufferSize = 0 //initialize buffer at zero bytes
 
 	//create channels
@@ -45,14 +46,15 @@ func (b *BufferflowGrbl) Init() {
 	b.rpt, _ = regexp.Compile("^<")
 
 	//build an interval loop at 250ms to query status
-	ticker := time.NewTicker(250 * time.Millisecond)
-	quit := make(chan struct{})
+	
+	ticker := time.NewTicker(100 * time.Millisecond)
+	b.quit = make(chan int)
 	go func() {
 	    for {
 	       select {
 	        case <- ticker.C:
 	            b.rptQuery()
-	        case <- quit:
+	        case <- b.quit:
 	            ticker.Stop()
 	            return
 	        }
@@ -193,7 +195,9 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 			b.Paused = false 
 			b.BufferSize = 0
 			b.BufferSizeArray = nil
-			log.Printf("grbl is ready for input")
+
+			log.Printf("Grbl buffers cleared - ready for input")
+			//should I also clear the system buffers here? not sure how other than sending ctrl+x through spWrite.
 			go func(){
 				b.sem <- 2 //since grbl was just initialized or reset, clear buffer
 			}()
@@ -304,6 +308,9 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool 
 	cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
 	if match, _ := regexp.MatchString("(\u0018)", cmd); match {
 		log.Printf("Found cmd that should wipe out and reset buffer. cmd:%v\n", cmd)
+		b.BufferSize = 0
+		b.BufferSizeArray = nil
+		log.Println("Buffer variables cleared for new input.")
 		return true
 	}
 	return false
@@ -336,4 +343,10 @@ func (b *BufferflowGrbl) IsBufferGloballySendingBackIncomingData() bool {
 //'?' is asynchronous to the normal buffer load and does not need to be paused when buffer full
 func (b *BufferflowGrbl) rptQuery(){
 	spWrite("sendnobuf " + b.Port + " ?")
+}
+
+func (b *BufferflowGrbl) Close(){
+	//stop the status query loop when the serial port is closed off.
+	log.Println("Stopping the status query loop")
+	b.quit <- 1
 }
