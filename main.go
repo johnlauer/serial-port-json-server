@@ -1,4 +1,4 @@
-// Version 1.5
+// Version 1.6
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -13,14 +13,15 @@ import (
 )
 
 var (
-	version = "1.5"
+	version = "1.6"
 	addr    = flag.String("addr", ":8989", "http service address")
 	assets  = flag.String("assets", defaultAssetPath(), "path to assets")
-    verbose = flag.Bool("v", false, "show debug logging")
+	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 )
 
 type NullWriter int
+
 func (NullWriter) Write([]byte) (int, error) { return 0, nil }
 
 func defaultAssetPath() string {
@@ -48,11 +49,10 @@ func main() {
 	log.Print("Started server and websocket on localhost" + f.Value.String())
 	//homeTempl = template.Must(template.ParseFiles(filepath.Join(*assets, "home.html")))
 
-    if !*verbose{
-        log.Println("Verbose mode not specified, stopping all further logging")
-        log.SetOutput(new(NullWriter)) //route all logging to nullwriter
-    }
-    
+	if !*verbose {
+		log.Println("Verbose mode not specified, stopping all further logging")
+		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
+	}
 
 	// launch the hub routine which is the singleton for the websocket server
 	go h.run()
