@@ -102,12 +102,23 @@ func (p *serport) reader() {
 			break
 		}
 
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			// hit end of file
-			log.Println("Hit end of file on serial port")
-			h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got EOF (End of File) on port which usually means another app other than Serial Port JSON Server is locking your port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
+		// double check that we got characters in the buffer
+		// before deciding if an EOF is legitimately a reason
+		// to close the port because we're seeing that on some
+		// os's like Linux/Ubuntu you get an EOF when you open
+		// the port. Perhaps the EOF was buffered from a previous
+		// close and the OS doesn't clear out that buffer on a new
+		// connect. This means we'll only catch EOF's when there are
+		// other characters with it, but that seems to work ok
+		if len(ch) == 0 {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				// hit end of file
+				log.Println("Hit end of file on serial port")
+				h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got EOF (End of File) on port which usually means another app other than Serial Port JSON Server is locking your port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
 
+			}
 		}
+
 		if err != nil {
 			log.Println(err)
 			h.broadcastSys <- []byte("Error reading on " + p.portConf.Name + " " +
