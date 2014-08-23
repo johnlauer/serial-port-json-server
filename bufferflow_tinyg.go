@@ -712,3 +712,6 @@ func (b *BufferflowTinyg) IsBufferGloballySendingBackIncomingData() bool {
 	// send the full blast of ganged up data
 	return true
 }
+
+func (b *BufferflowTinyg) Close() {
+}
