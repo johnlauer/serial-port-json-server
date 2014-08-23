@@ -304,6 +304,7 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 func spHandlerClose(p *serport) {
 	p.isClosing = true
 	// close the port
+	p.bufferwatcher.Close()
 	p.portIo.Close()
 	// unregister myself
 	// we already have a deferred unregister in place from when
