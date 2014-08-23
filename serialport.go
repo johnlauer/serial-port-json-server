@@ -117,14 +117,14 @@ func (p *serport) reader() {
 				h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got EOF (End of File) on port which usually means another app other than Serial Port JSON Server is locking your port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
 
 			}
-		}
 
-		if err != nil {
-			log.Println(err)
-			h.broadcastSys <- []byte("Error reading on " + p.portConf.Name + " " +
-				err.Error() + " Closing port.")
-			h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got error reading on port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
-			break
+		    if err != nil {
+			    log.Println(err)
+			    h.broadcastSys <- []byte("Error reading on " + p.portConf.Name + " " +
+				    err.Error() + " Closing port.")
+			    h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got error reading on port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
+			    break
+		    }
 		}
 
 		// loop thru and look for a newline
