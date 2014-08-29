@@ -12,10 +12,32 @@ import (
 	//"encoding/binary"
 	//"strconv"
 	//"syscall"
+	"sync"
+)
+
+var (
+	serialListWindowsWg sync.WaitGroup
 )
 
 func getList() ([]OsSerialPort, os.SyscallError) {
-	return getListViaWmiPnpEntity()
+	// use a queue to do this to avoid conflicts
+	// we've been getting crashes when this getList is requested
+	// too many times too fast. i think it's something to do with
+	// the unsafe syscalls overwriting memory
+
+	// this will only block if waitgroupctr > 0. so first time
+	// in shouldn't block
+	serialListWindowsWg.Wait()
+
+	serialListWindowsWg.Add(1)
+	arr, sysCallErr := getListViaWmiPnpEntity()
+	serialListWindowsWg.Done()
+
+	return arr, sysCallErr
+}
+
+func getListSynchronously() {
+
 }
 
 func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
