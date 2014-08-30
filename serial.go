@@ -66,6 +66,8 @@ var sh = serialhub{
 func (sh *serialhub) run() {
 
 	log.Print("Inside run of serialhub")
+	cmdIdCtr := 0
+
 	//s := ser.open()
 	//ser.s := s
 	//ser.write(s, []byte("hello serial data"))
@@ -141,7 +143,7 @@ func (sh *serialhub) run() {
 						for keepLooping {
 							select {
 							case d, ok := <-wr.p.sendBuffered:
-								log.Printf("Consuming sendBuffered queue. ok:%v, d:%v\n", ok, string(d))
+								log.Printf("Consuming sendBuffered queue. ok:%v, d:%v, id:%v\n", ok, string(d.data), string(d.id))
 								ctr++
 								// since we just consumed a buffer item, we need to decrement bufcount
 								// we are doing this artificially because we artifically threw
@@ -240,13 +242,14 @@ func (sh *serialhub) run() {
 
 			// now send off the commands to the appropriate channel
 			for index, cmdToSendToChannel := range cmds {
-
+				cmdIdCtr++
+				cmdId := "fakeid-" + strconv.Itoa(cmdIdCtr)
 				if bufTypeArr[index] == "Buf" {
 					log.Println("Send was normal send, so sending to wr.p.sendBuffered")
-					wr.p.sendBuffered <- []byte(cmdToSendToChannel)
+					wr.p.sendBuffered <- Cmd{cmdToSendToChannel, cmdId}
 				} else {
 					log.Println("Send was sendnobuf, so sending to wr.p.sendNoBuf")
-					wr.p.sendNoBuf <- []byte(cmdToSendToChannel)
+					wr.p.sendNoBuf <- Cmd{cmdToSendToChannel, cmdId}
 				}
 			}
 		}
