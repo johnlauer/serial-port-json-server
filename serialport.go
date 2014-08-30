@@ -299,6 +299,7 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
+		bw.rptQueryLoop(p)
 	}else {
 		bw := &BufferflowDefault{}
 		bw.Init()
