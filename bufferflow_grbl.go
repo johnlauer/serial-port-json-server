@@ -18,8 +18,10 @@ type BufferflowGrbl struct {
 	BufferSizeArray []int
 	sem chan int
 	LatestData string
+	LastStatus string
 	version string
 	quit chan int
+	parent_serport *serport
 
 	reNewLine *regexp.Regexp
 	re *regexp.Regexp
@@ -45,21 +47,6 @@ func (b *BufferflowGrbl) Init() {
 	b.qry, _ = regexp.Compile("\\?")
 	b.rpt, _ = regexp.Compile("^<")
 
-	//build an interval loop at 250ms to query status
-	
-	ticker := time.NewTicker(100 * time.Millisecond)
-	b.quit = make(chan int)
-	go func() {
-	    for {
-	       select {
-	        case <- ticker.C:
-	            b.rptQuery()
-	        case <- b.quit:
-	            ticker.Stop()
-	            return
-	        }
-	    }
-	 }()
 }
 
 func (b *BufferflowGrbl) BlockUntilReady(cmd string) bool {
@@ -201,6 +188,13 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 			go func(){
 				b.sem <- 2 //since grbl was just initialized or reset, clear buffer
 			}()
+		} else if b.rpt.MatchString(element){
+			if(element == b.LastStatus){
+				log.Println("Grbl status has not changed, not reporting to ws")
+				continue  //skip this element as the cnc position has not changed, and move on to the next element.
+			}
+
+			b.LastStatus = element //if we make it here the elements are different and laststatus needs updating
 		}
 
 
@@ -341,8 +335,32 @@ func (b *BufferflowGrbl) IsBufferGloballySendingBackIncomingData() bool {
 //Use this function to open a connection, write directly to serial port and close connection.
 //This is used for sending query requests outside of the normal buffered operations that will pause to wait for room in the grbl buffer
 //'?' is asynchronous to the normal buffer load and does not need to be paused when buffer full
-func (b *BufferflowGrbl) rptQuery(){
-	spWrite("sendnobuf " + b.Port + " ?")
+func (b *BufferflowGrbl) rptQueryLoop(p *serport){
+	b.parent_serport = p //make note of this port for use in clearing the buffer later, on error.
+	ticker := time.NewTicker(250 * time.Millisecond)
+	b.quit = make(chan int)
+	go func() {
+	    for {
+	       select {
+	        case <- ticker.C:
+	            
+	            n2, err := p.portIo.Write([]byte("?"))
+
+	            log.Print("Just wrote ", n2, " bytes to serial: ?")
+
+				if err != nil {
+					errstr := "Error writing to " + p.portConf.Name + " " + err.Error() + " Closing port."
+					log.Print(errstr)
+					h.broadcastSys <- []byte(errstr)
+					ticker.Stop() //stop query loop if we can't write to the port
+					break
+				}
+	        case <- b.quit:
+	            ticker.Stop()
+	            return
+	        }
+	    }
+	 }()
 }
 
 func (b *BufferflowGrbl) Close(){
