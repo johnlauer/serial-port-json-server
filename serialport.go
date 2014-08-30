@@ -22,10 +22,10 @@ type serport struct {
 	itemsInBuffer int
 
 	// buffered channel containing up to 25600 outbound messages.
-	sendBuffered chan []byte
+	sendBuffered chan Cmd
 
 	// unbuffered channel of outbound messages that bypass internal serial port buffer
-	sendNoBuf chan []byte
+	sendNoBuf chan Cmd
 
 	// Do we have an extra channel/thread to watch our buffer?
 	BufferType string
@@ -33,9 +33,15 @@ type serport struct {
 	bufferwatcher Bufferflow
 }
 
+type Cmd struct {
+	data string
+	id   string
+}
+
 type qwReport struct {
 	Cmd  string
 	QCnt int
+	Id   string
 	D    string
 	Port string
 }
@@ -118,13 +124,13 @@ func (p *serport) reader() {
 
 			}
 
-		    if err != nil {
-			    log.Println(err)
-			    h.broadcastSys <- []byte("Error reading on " + p.portConf.Name + " " +
-				    err.Error() + " Closing port.")
-			    h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got error reading on port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
-			    break
-		    }
+			if err != nil {
+				log.Println(err)
+				h.broadcastSys <- []byte("Error reading on " + p.portConf.Name + " " +
+					err.Error() + " Closing port.")
+				h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Got error reading on port. " + err.Error() + "\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + "}")
+				break
+			}
 		}
 
 		// loop thru and look for a newline
@@ -158,22 +164,24 @@ func (p *serport) writerBuffered() {
 
 	// this method can panic if user closes serial port and something is
 	// in BlockUntilReady() and then a send occurs on p.sendNoBuf
-	defer func() {
-		if e := recover(); e != nil {
-			// e is the interface{} typed-value we passed to panic()
-			log.Println("Got panic: ", e) // Prints "Whoops: boom!"
-		}
-	}()
+	/*
+		defer func() {
+			if e := recover(); e != nil {
+				// e is the interface{} typed-value we passed to panic()
+				log.Println("Got panic: ", e) // Prints "Whoops: boom!"
+			}
+		}()
+	*/
 
 	// this for loop blocks on p.sendBuffered until that channel
 	// sees something come in
 	for data := range p.sendBuffered {
 
-		log.Printf("Got p.sendBuffered. data:%v\n", string(data))
+		log.Printf("Got p.sendBuffered. data:%v, id:%v\n", string(data.data), string(data.id))
 
 		// we want to block here if we are being asked
 		// to pause.
-		goodToGo := p.bufferwatcher.BlockUntilReady(string(data))
+		goodToGo := p.bufferwatcher.BlockUntilReady(string(data.data), data.id)
 
 		if goodToGo == false {
 			log.Println("We got back from BlockUntilReady() but apparently we must cancel this cmd")
@@ -197,14 +205,14 @@ func (p *serport) writerNoBuf() {
 	// sees something come in
 	for data := range p.sendNoBuf {
 
-		log.Printf("Got p.sendNoBuf. data:%v\n", string(data))
+		log.Printf("Got p.sendNoBuf. data:%v, id:%v\n", string(data.data), string(data.id))
 
 		// we want to block here if we are being asked
 		// to pause. the problem is, how do we unblock
 		//bufferBlockUntilReady(p.bufferwatcher)
 		//p.bufferwatcher.BlockUntilReady()
 
-		n2, err := p.portIo.Write(data)
+		n2, err := p.portIo.Write([]byte(data.data))
 
 		// if we get here, we were able to write successfully
 		// to the serial port because it blocks until it can write
@@ -216,13 +224,14 @@ func (p *serport) writerNoBuf() {
 		qwr := qwReport{
 			Cmd:  "Write",
 			QCnt: p.itemsInBuffer,
-			D:    string(data),
+			Id:   string(data.id),
+			D:    string(data.data),
 			Port: p.portConf.Name,
 		}
 		json, _ := json.Marshal(qwr)
 		h.broadcastSys <- json
 
-		log.Print("Just wrote ", n2, " bytes to serial: ", string(data))
+		log.Print("Just wrote ", n2, " bytes to serial: ", string(data.data))
 		//log.Print(n2)
 		//log.Print(" bytes to serial: ")
 		//log.Print(data)
@@ -271,7 +280,7 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 	}
 	log.Print("Opened port successfully")
 	//p := &serport{send: make(chan []byte, 256), portConf: conf, portIo: sp}
-	p := &serport{sendBuffered: make(chan []byte, 256*100), sendNoBuf: make(chan []byte), portConf: conf, portIo: sp, BufferType: buftype}
+	p := &serport{sendBuffered: make(chan Cmd, 256*100), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype}
 
 	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
 	if buftype == "tinyg" {

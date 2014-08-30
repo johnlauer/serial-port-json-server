@@ -5,16 +5,16 @@ import (
 	"log"
 	"regexp"
 	"strconv"
-	"time"
 	"strings"
+	"time"
 )
 
 type BufferflowGrbl struct {
-	Name string
-	Port string
-	Paused bool
-	BufferMax int
-	BufferSize int
+	Name            string
+	Port            string
+	Paused          bool
+	BufferMax       int
+	BufferSize      int
 	BufferSizeArray []int
 	sem chan int
 	LatestData string
@@ -24,10 +24,10 @@ type BufferflowGrbl struct {
 	parent_serport *serport
 
 	reNewLine *regexp.Regexp
-	re *regexp.Regexp
-	initline *regexp.Regexp
-	qry *regexp.Regexp
-	rpt *regexp.Regexp
+	re        *regexp.Regexp
+	initline  *regexp.Regexp
+	qry       *regexp.Regexp
+	rpt       *regexp.Regexp
 }
 
 func (b *BufferflowGrbl) Init() {
@@ -35,21 +35,21 @@ func (b *BufferflowGrbl) Init() {
 
 	log.Println("Initting GRBL buffer flow")
 	b.BufferMax = 127 //max buffer size 127 bytes available
-	b.BufferSize = 0 //initialize buffer at zero bytes
+	b.BufferSize = 0  //initialize buffer at zero bytes
 
 	//create channels
 	b.sem = make(chan int)
 
 	//define regex
-	b.reNewLine, _ = regexp.Compile("\\r{0,1}\\n{1,2}")  //\\r{0,1}
-	b.re, _ = regexp.Compile("(ok|error)")
-	b.initline, _ = regexp.Compile("Grbl") 
+	b.reNewLine, _ = regexp.Compile("\\r{0,1}\\n{1,2}") //\\r{0,1}
+	b.re, _ = regexp.Compile("^(ok|error)")
+	b.initline, _ = regexp.Compile("^Grbl")
 	b.qry, _ = regexp.Compile("\\?")
 	b.rpt, _ = regexp.Compile("^<")
 
 }
 
-func (b *BufferflowGrbl) BlockUntilReady(cmd string) bool {
+func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) bool {
 	log.Printf("BlockUntilReady() start\n")
 
 	//if b.qry.MatchString(cmd){
@@ -59,13 +59,13 @@ func (b *BufferflowGrbl) BlockUntilReady(cmd string) bool {
 	//Here we add the length of the new command to the buffer size and append the length
 	//to the buffer array.  Check if buffersize > buffermax and if so we pause and await free space before
 	//sending the command to grbl.
-	b.BufferSize += len(cmd) 
-	b.BufferSizeArray = append(b.BufferSizeArray,len(cmd)) 
-	
+	b.BufferSize += len(cmd)
+	b.BufferSizeArray = append(b.BufferSizeArray, len(cmd))
+
 	log.Printf("New line length: " + strconv.Itoa(len(cmd)) + " -- Buffer increased to: " + strconv.Itoa(b.BufferSize))
 	log.Println(b.BufferSizeArray)
 
-	if b.BufferSize >= b.BufferMax{
+	if b.BufferSize >= b.BufferMax {
 		b.Paused = true
 	}
 
@@ -108,10 +108,10 @@ func (b *BufferflowGrbl) BlockUntilReady(cmd string) bool {
 			// this function returns
 			return false
 		}
-	} 
+	}
 
 	log.Printf("BlockUntilReady() end\n")
-	
+
 	return true
 }
 
@@ -139,28 +139,28 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 		log.Printf("Did not find newline yet, so nothing to analyze\n")
 		return
 	}
-	
+
 	// if we made it here we have lines to analyze
 	// so analyze all of them except the last line
 	for index, element := range arrLines[:len(arrLines)-1] {
 		log.Printf("Working on element:%v, index:%v", element, index)
 
 		//check for 'ok' or 'error' response indicating a gcode line has been processed
-		if b.re.MatchString(element){
+		if b.re.MatchString(element) {
 
-			if b.BufferSizeArray != nil{
+			if b.BufferSizeArray != nil {
 				b.BufferSize -= b.BufferSizeArray[0]
-				
-				if len(b.BufferSizeArray) > 1{
+
+				if len(b.BufferSizeArray) > 1 {
 					b.BufferSizeArray = b.BufferSizeArray[1:len(b.BufferSizeArray)]
-				}else{
+				} else {
 					b.BufferSizeArray = nil
 				}
 
 				log.Printf("Buffer Decreased: " + strconv.Itoa(b.BufferSize))
 			}
 
-			if b.BufferSize < b.BufferMax{
+			if b.BufferSize < b.BufferMax {
 				b.Paused = false
 				log.Printf("grbl just completed a line of gcode\n")
 				go func() {
@@ -173,19 +173,19 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 						gcodeline := gcodeline
 						log.Printf("StartSending Semaphore just got consumed by the BlockUntilReady() thread for the gcodeline:%v\n", gcodeline)
 					}()
-				}()	
+				}()
 			}
-		//check for the grbl init line indicating the arduino is ready to accept commands
-		//could also pull version from this string, if we find a need for that later
-		} else if b.initline.MatchString(element){
+			//check for the grbl init line indicating the arduino is ready to accept commands
+			//could also pull version from this string, if we find a need for that later
+		} else if b.initline.MatchString(element) {
 			//grbl init line received, unpause and allow buffered input to send to grbl
-			b.Paused = false 
+			b.Paused = false
 			b.BufferSize = 0
 			b.BufferSizeArray = nil
 
 			log.Printf("Grbl buffers cleared - ready for input")
 			//should I also clear the system buffers here? not sure how other than sending ctrl+x through spWrite.
-			go func(){
+			go func() {
 				b.sem <- 2 //since grbl was just initialized or reset, clear buffer
 			}()
 		} else if b.rpt.MatchString(element){
@@ -196,7 +196,6 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 
 			b.LastStatus = element //if we make it here the elements are different and laststatus needs updating
 		}
-
 
 		// handle communication back to client
 		m := DataPerLine{b.Port, element + "\n"}
@@ -215,6 +214,10 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 	log.Printf("OnIncomingData() end.\n")
 }
 
+// Clean out b.sem so it can truly block
+func (b *BufferflowGrbl) ClearOutSemaphore() {
+}
+
 func (b *BufferflowGrbl) BreakApartCommands(cmd string) []string {
 
 	// add newline after !~%
@@ -222,12 +225,12 @@ func (b *BufferflowGrbl) BreakApartCommands(cmd string) []string {
 
 	cmds := strings.Split(cmd, "\n")
 	finalCmds := []string{}
-	for _ , item := range cmds {
+	for _, item := range cmds {
 
-		if item == "?"{
-			log.Printf("Query added without newline: %q\n",item)
+		if item == "?" {
+			log.Printf("Query added without newline: %q\n", item)
 			finalCmds = append(finalCmds, item) //append query request without newline character
-		}else if item != ""{
+		} else if item != "" {
 			log.Printf("Re-adding newline to item:%v\n", item)
 			s := item + "\n"
 			finalCmds = append(finalCmds, s)
@@ -310,6 +313,19 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool 
 	return false
 }
 
+func (b *BufferflowGrbl) SeeIfSpecificCommandsReturnNoResponse(cmd string) bool {
+	/*
+		// remove comments
+		cmd = b.reComment.ReplaceAllString(cmd, "")
+		cmd = b.reComment2.ReplaceAllString(cmd, "")
+		if match := b.reNoResponse.MatchString(cmd); match {
+			log.Printf("Found cmd that does not get a response from TinyG. cmd:%v\n", cmd)
+			return true
+		}
+	*/
+	return false
+}
+
 func (b *BufferflowGrbl) ReleaseLock() {
 	log.Println("Lock being released in GRBL buffer")
 
@@ -363,7 +379,7 @@ func (b *BufferflowGrbl) rptQueryLoop(p *serport){
 	 }()
 }
 
-func (b *BufferflowGrbl) Close(){
+func (b *BufferflowGrbl) Close() {
 	//stop the status query loop when the serial port is closed off.
 	log.Println("Stopping the status query loop")
 	b.quit <- 1
