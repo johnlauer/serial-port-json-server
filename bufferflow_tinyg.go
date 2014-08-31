@@ -33,8 +33,8 @@ type BufferflowTinyg struct {
 	reCrLfSetTo1          *regexp.Regexp
 
 	// slot counter approach
-	reSlotDone            *regexp.Regexp // the r:null cmd to look for back from tinyg indicating line processed
-	reCmdsWithNoRResponse *regexp.Regexp // since we're using slot approach, we expect an r:{} response, but some commands don't give that so just don't expect it
+	reSlotDone *regexp.Regexp // the r:null cmd to look for back from tinyg indicating line processed
+	//reCmdsWithNoRResponse *regexp.Regexp // since we're using slot approach, we expect an r:{} response, but some commands don't give that so just don't expect it
 	//SlotMax               int            // queue into tinyg using slot approach
 	//SlotCtr               int            // queue into tinyg using slot approach
 
@@ -82,13 +82,13 @@ func (b *BufferflowTinyg) Init() {
 	// {"r":{},"f":[1,0,33,134]}
 	// when we see this, decrement the b.SlotCtr
 	b.reSlotDone, _ = regexp.Compile("\"r\":{")
-	b.reCmdsWithNoRResponse, _ = regexp.Compile("[!~%]")
+	//b.reCmdsWithNoRResponse, _ = regexp.Compile("[!~%]")
 	//log.Printf("Using slot approach for TinyG buffering. slotMax:%v, slotCtr:%v\n", b.SlotMax, b.SlotCtr)
 
 	/* End Slot Approach Items */
 
 	/* Start Buffer Size Approach Items */
-	b.BufferMax = 230 //max buffer size 254 bytes available
+	b.BufferMax = 200 //max buffer size 254 bytes available
 	//b.BufferSize = 0  //initialize buffer at zero bytes
 	b.lock = &sync.Mutex{}
 	b.q = NewQueue()
@@ -160,7 +160,7 @@ func (b *BufferflowTinyg) Init() {
 }
 
 // Serial buffer size approach
-func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) bool {
+func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 	log.Printf("BlockUntilReady(cmd:%v, id:%v) start\n", cmd, id)
 
 	// Since BlockUntilReady is in the writer thread, lock so the reader
@@ -173,7 +173,8 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) bool {
 	// sending the command to grbl.
 
 	// Only increment if cmd is something we'll get an r:{} response to
-	if b.SeeIfSpecificCommandsReturnNoResponse(cmd) == false {
+	isReturnsNoResponse := b.SeeIfSpecificCommandsReturnNoResponse(cmd)
+	if isReturnsNoResponse == false {
 
 		b.q.Push(cmd, id)
 		/*
@@ -191,12 +192,6 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) bool {
 		// be used in b.BufferMax
 		log.Printf("Not incrementing buffer size for cmd:%v\n", cmd)
 
-		// Send fake cmd:"Complete" back
-		m := DataCmdComplete{"Complete", id, b.Port, b.q.LenOfCmds(), cmd}
-		bm, err := json.Marshal(m)
-		if err == nil {
-			h.broadcastSys <- bm
-		}
 	}
 
 	log.Printf("New line length: %v, buffer size increased to:%v\n", len(cmd), b.q.LenOfCmds())
@@ -228,13 +223,21 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) bool {
 			log.Println("This was an unblock of type 2, which means we're being asked to wipe internal buffer. so return false.")
 			// returning false asks the calling method to wipe the serial send once
 			// this function returns
-			return false
+			return false, false
 		}
+	}
+
+	// we will get here when we're done blocking and if we weren't cancelled
+	// if this cmd returns no response, we need to generate a fake "Complete"
+	// so do it now
+	willHandleCompleteResponse := true
+	if isReturnsNoResponse == true {
+		willHandleCompleteResponse = false
 	}
 
 	log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
 
-	return true
+	return true, willHandleCompleteResponse
 }
 
 // Serial buffer size approach
@@ -252,26 +255,26 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 	//b.LatestData = regexp.MustCompile(">\\r\\nok").ReplaceAllString(b.LatestData, ">") //remove oks from status responses
 
 	arrLines := b.reNewLine.Split(b.LatestData, -1)
-	log.Printf("arrLines:%v\n", arrLines)
+	//log.Printf("arrLines:%v\n", arrLines)
 
 	if len(arrLines) > 1 {
 		// that means we found a newline and have 2 or greater array values
 		// so we need to analyze our arrLines[] lines but keep last line
 		// for next trip into OnIncomingData
-		log.Printf("We have data lines to analyze. numLines:%v\n", len(arrLines))
+		//log.Printf("We have data lines to analyze. numLines:%v\n", len(arrLines))
 
 	} else {
 		// we don't have a newline yet, so just exit and move on
 		// we don't have to reset b.LatestData because we ended up
 		// without any newlines so maybe we will next time into this method
-		log.Printf("Did not find newline yet, so nothing to analyze\n")
+		//log.Printf("Did not find newline yet, so nothing to analyze\n")
 		return
 	}
 
 	// if we made it here we have lines to analyze
 	// so analyze all of them except the last line
-	for index, element := range arrLines[:len(arrLines)-1] {
-		log.Printf("Working on element:%v, index:%v", element, index)
+	for _, element := range arrLines[:len(arrLines)-1] {
+		//log.Printf("Working on element:%v, index:%v", element, index)
 
 		//check for r:{} response indicating a gcode line has been processed
 		if b.reSlotDone.MatchString(element) {
