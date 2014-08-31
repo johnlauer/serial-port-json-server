@@ -1,4 +1,4 @@
-// Version 1.6
+// Version 1.7
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	version = "1.6"
+	version = "1.7"
 	addr    = flag.String("addr", ":8989", "http service address")
 	assets  = flag.String("assets", defaultAssetPath(), "path to assets")
 	verbose = flag.Bool("v", true, "show debug logging")
