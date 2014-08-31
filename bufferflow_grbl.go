@@ -59,7 +59,7 @@ func (b *BufferflowGrbl) Init() {
 
 }
 
-func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) bool {
+func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) (bool, bool) {
 	log.Printf("BlockUntilReady() start\n")
 
 	//if b.qry.MatchString(cmd){
@@ -100,13 +100,13 @@ func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) bool {
 			log.Println("This was an unblock of type 2, which means we're being asked to wipe internal buffer. so return false.")
 			// returning false asks the calling method to wipe the serial send once
 			// this function returns
-			return false
+			return false, false
 		}
 	}
 
 	log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
 
-	return true
+	return true, false
 }
 
 func (b *BufferflowGrbl) OnIncomingData(data string) {

@@ -34,8 +34,18 @@ type serport struct {
 }
 
 type Cmd struct {
-	data string
-	id   string
+	data                       string
+	id                         string
+	skippedBuffer              bool
+	willHandleCompleteResponse bool
+}
+
+type CmdComplete struct {
+	Cmd     string
+	Id      string
+	P       string
+	BufSize int
+	D       string
 }
 
 type qwReport struct {
@@ -43,7 +53,8 @@ type qwReport struct {
 	QCnt int
 	Id   string
 	D    string
-	Port string
+	Buf  string
+	P    string
 }
 
 type SpPortMessage struct {
@@ -181,7 +192,7 @@ func (p *serport) writerBuffered() {
 
 		// we want to block here if we are being asked
 		// to pause.
-		goodToGo := p.bufferwatcher.BlockUntilReady(string(data.data), data.id)
+		goodToGo, willHandleCompleteResponse := p.bufferwatcher.BlockUntilReady(string(data.data), data.id)
 
 		if goodToGo == false {
 			log.Println("We got back from BlockUntilReady() but apparently we must cancel this cmd")
@@ -190,6 +201,7 @@ func (p *serport) writerBuffered() {
 		} else {
 			// send to the non-buffered serial port writer
 			log.Println("About to send to p.sendNoBuf channel")
+			data.willHandleCompleteResponse = willHandleCompleteResponse
 			p.sendNoBuf <- data
 		}
 	}
@@ -207,13 +219,6 @@ func (p *serport) writerNoBuf() {
 
 		log.Printf("Got p.sendNoBuf. data:%v, id:%v\n", string(data.data), string(data.id))
 
-		// we want to block here if we are being asked
-		// to pause. the problem is, how do we unblock
-		//bufferBlockUntilReady(p.bufferwatcher)
-		//p.bufferwatcher.BlockUntilReady()
-
-		n2, err := p.portIo.Write([]byte(data.data))
-
 		// if we get here, we were able to write successfully
 		// to the serial port because it blocks until it can write
 
@@ -221,15 +226,37 @@ func (p *serport) writerNoBuf() {
 		p.itemsInBuffer--
 		log.Printf("itemsInBuffer:%v\n", p.itemsInBuffer)
 		//h.broadcastSys <- []byte("{\"Cmd\":\"Write\",\"QCnt\":" + strconv.Itoa(p.itemsInBuffer) + ",\"Byte\":" + strconv.Itoa(n2) + ",\"Port\":\"" + p.portConf.Name + "\"}")
+		buf := "Buf"
+		if data.skippedBuffer {
+			buf = "NoBuf"
+		}
 		qwr := qwReport{
 			Cmd:  "Write",
 			QCnt: p.itemsInBuffer,
 			Id:   string(data.id),
 			D:    string(data.data),
-			Port: p.portConf.Name,
+			Buf:  buf,
+			P:    p.portConf.Name,
 		}
-		json, _ := json.Marshal(qwr)
-		h.broadcastSys <- json
+		qwrJson, _ := json.Marshal(qwr)
+		h.broadcastSys <- qwrJson
+
+		// FINALLY, OF ALL THE CODE IN THIS PROJECT
+		// WE TRULY/FINALLY GET TO WRITE TO THE SERIAL PORT!
+		n2, err := p.portIo.Write([]byte(data.data))
+
+		// see if we need to send back the completeResponse
+		if data.willHandleCompleteResponse == false {
+			// we need to send back complete response
+			// Send fake cmd:"Complete" back
+			//strCmd := data.data
+			m := CmdComplete{"CompleteFake", data.id, p.portConf.Name, -1, data.data}
+			msgJson, err := json.Marshal(m)
+			if err == nil {
+				h.broadcastSys <- msgJson
+			}
+
+		}
 
 		log.Print("Just wrote ", n2, " bytes to serial: ", string(data.data))
 		//log.Print(n2)
