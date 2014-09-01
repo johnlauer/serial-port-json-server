@@ -106,7 +106,7 @@ func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) (bool, bool) {
 
 	log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
 
-	return true, false
+	return true, true
 }
 
 func (b *BufferflowGrbl) OnIncomingData(data string) {
@@ -159,7 +159,7 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 
 			if b.q.LenOfCmds() < b.BufferMax {
 
-				log.Printf("tinyg just completed a line of gcode\n")
+				log.Printf("Grbl just completed a line of gcode\n")
 
 				// if we are paused, tell us to unpause cuz we have clean buffer room now
 				if b.GetPaused() {
@@ -185,8 +185,8 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 		} else if b.initline.MatchString(element) {
 			//grbl init line received, unpause and allow buffered input to send to grbl
 			if b.GetPaused() { b.SetPaused(false) }
-			
-			b.q.Delete()
+
+			//b.q.Delete()
 
 			log.Printf("Grbl buffers cleared - ready for input")
 			//should I also clear the system buffers here? not sure how other than sending ctrl+x through spWrite.
@@ -197,7 +197,7 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 		//Check for report output, compare to last report output, if different return to client to update status; otherwise ignore status.
 		} else if b.rpt.MatchString(element){
 			if(element == b.LastStatus){
-				log.Println("Grbl status has not changed, not reporting to ws")
+				log.Println("Grbl status has not changed, not reporting to client")
 				continue  //skip this element as the cnc position has not changed, and move on to the next element.
 			}
 
