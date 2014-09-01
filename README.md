@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.6
+Version 1.7
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
@@ -62,6 +62,7 @@ Command | Example | Description
 ------- | ------- | -------
 list    |         | Lists all available serial ports on your device
 open portName baudRate [bufferAlgorithm] | open /dev/ttyACM0 115200 tinyg | Opens a serial port. The comPort should be the Name of the port inside the list response such as COM2 or /dev/ttyACM0. The baudrate should be a rate from the baudrates command or a typical baudrate such as 9600 or 115200. A bufferAlgorithm can be optionally specified such as "tinyg" (or in the future "grbl" if somebody writes it) or write your own.
+sendjson {} | {"P":"COM22","Data":[{"D":"!~\n","Id":"234"},{"D":"{\"sr\":\"\"}\n","Id":"235"}]} | See Wiki page at https://github.com/johnlauer/serial-port-json-server/wiki
 send portName data | send /dev/ttyACM0 G1 X10.5 Y2 F100\n | Send your data to the serial port. Remember to send a newline in your data if your serial port expects it.
 sendnobuf portName data | send COM22 {"qv":0}\n | Send your data and bypass the bufferFlowAlgorithm if you specified one.
 close portName | close COM1 | Close out your serial port
@@ -84,6 +85,10 @@ FAQ
 
 Revisions
 -------
+Changes in 1.7
+- sendjson now supported. Will give back onQueue, onWrite, onComplete
+- Moved TinyG buffer to serial byte counting.
+
 Changes in 1.6
 - Logging is now off by default so Raspberry Pi runs cleaner. The immense amount of logging was dragging the Raspi down. Should help on BeagleBone Black as well. Makes SPJS run more efficient on powerful systems too like Windows, Mac, and Linux. You can turn on logging by issuing a -v on the command line. This fix by Jarret Luft.
 - Added EOF extra checking for Linux serial ports that seem to return an EOF on a new connect and thus the port was prematurely closing. Thanks to Yiannis Mandravellos for finding the bug and fixing it.
