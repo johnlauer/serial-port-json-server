@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	version = "1.7"
-	addr    = flag.String("addr", ":8989", "http service address")
-	assets  = flag.String("assets", defaultAssetPath(), "path to assets")
-	verbose = flag.Bool("v", true, "show debug logging")
-	//verbose = flag.Bool("v", false, "show debug logging")
+	version      = "1.7"
+	versionFloat = float32(1.7)
+	addr         = flag.String("addr", ":8989", "http service address")
+	assets       = flag.String("assets", defaultAssetPath(), "path to assets")
+	//verbose      = flag.Bool("v", true, "show debug logging")
+	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 )
 

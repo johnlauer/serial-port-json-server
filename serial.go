@@ -41,7 +41,7 @@ type qReportJsonData struct {
 	D     string
 	Id    string
 	Buf   string
-	Parts int
+	Parts int `json:"-"`
 }
 
 type qReport struct {
@@ -87,6 +87,7 @@ type SpPortItem struct {
 	DtrOn                     bool
 	BufferAlgorithm           string
 	AvailableBufferAlgorithms []string
+	Ver                       float32
 }
 
 var sh = serialhub{
@@ -159,7 +160,14 @@ func writeJson(wrj writeRequestJson) {
 
 		for index, _ := range cmds {
 			// create q report data
-			qrd := qReportJsonData{D: cmds[index], Id: idArr[index], Parts: len(cmds)}
+			cmdId := idArr[index]
+			// append stuff to the id if this cmd was one line and just got broken up
+			// the first line will have a normal id like "123"
+			// the 2nd, 3rd,e tc line will have id like "123-part-2-3", "123-part-3-3"
+			if index > 0 {
+				cmdId = fmt.Sprintf("%v-part-%v-%v", cmdId, (index + 1), len(cmds))
+			}
+			qrd := qReportJsonData{D: cmds[index], Id: cmdId, Parts: len(cmds)}
 			// if user forced the buffer type, just use it
 			if cmdJson.Buf == "Buf" || cmdJson.Buf == "NoBuf" {
 				qrd.Buf = cmdJson.Buf
@@ -175,7 +183,7 @@ func writeJson(wrj writeRequestJson) {
 
 	// do our own report
 	qr := qReportJson{
-		Cmd:  "QueuedJson",
+		Cmd:  "Queued",
 		Data: qReportDataArr,
 		QCnt: wrj.p.itemsInBuffer,
 		P:    wrj.p.portConf.Name,
@@ -386,7 +394,7 @@ func spList() {
 	spl := SpPortList{make([]SpPortItem, n, n)}
 	ctr := 0
 	for _, item := range list {
-		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false, "", availableBufferAlgorithms}
+		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false, "", availableBufferAlgorithms, versionFloat}
 
 		// figure out if port is open
 		//spl.SerialPorts[ctr].IsOpen = false
