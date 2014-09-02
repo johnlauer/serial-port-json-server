@@ -61,7 +61,7 @@ type DataCmdComplete struct {
 	Id      string
 	P       string
 	BufSize int
-	D       string
+	D       string `json:"-"`
 }
 
 type GcodeCmd struct {
