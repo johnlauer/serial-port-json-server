@@ -45,14 +45,14 @@ type CmdComplete struct {
 	Id      string
 	P       string
 	BufSize int
-	D       string
+	D       string `json:"-"`
 }
 
 type qwReport struct {
 	Cmd  string
 	QCnt int
 	Id   string
-	D    string
+	D    string `json:"-"`
 	Buf  string
 	P    string
 }
@@ -175,14 +175,13 @@ func (p *serport) writerBuffered() {
 
 	// this method can panic if user closes serial port and something is
 	// in BlockUntilReady() and then a send occurs on p.sendNoBuf
-	/*
-		defer func() {
-			if e := recover(); e != nil {
-				// e is the interface{} typed-value we passed to panic()
-				log.Println("Got panic: ", e) // Prints "Whoops: boom!"
-			}
-		}()
-	*/
+
+	defer func() {
+		if e := recover(); e != nil {
+			// e is the interface{} typed-value we passed to panic()
+			log.Println("Got panic: ", e) // Prints "Whoops: boom!"
+		}
+	}()
 
 	// this for loop blocks on p.sendBuffered until that channel
 	// sees something come in
