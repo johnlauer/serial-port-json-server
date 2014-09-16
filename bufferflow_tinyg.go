@@ -51,19 +51,6 @@ type BufferflowTinyg struct {
 	lock *sync.Mutex
 }
 
-type DataPerLine struct {
-	P string
-	D string
-}
-
-type DataCmdComplete struct {
-	Cmd     string
-	Id      string
-	P       string
-	BufSize int
-	D       string
-}
-
 type GcodeCmd struct {
 	Cmd string
 	Id  string

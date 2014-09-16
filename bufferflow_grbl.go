@@ -15,9 +15,6 @@ type BufferflowGrbl struct {
 	Port            string
 	Paused          bool
 	BufferMax       int
-	//BufferSize      int
-	//BufferSizeArray []int
-	//queue for buffer size tracking
 	q *Queue
 
 	// use thread locking for b.Paused
@@ -251,6 +248,10 @@ func (b *BufferflowGrbl) BreakApartCommands(cmd string) []string {
 	cmds := strings.Split(cmd, "\n")
 	finalCmds := []string{}
 	for _, item := range cmds {
+		//remove comments and whitespace from item
+		item = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(item, "")
+		item = regexp.MustCompile(";.*").ReplaceAllString(item, "")
+		item = strings.Replace(item," ","",-1)
 
 		if item == "?" {
 			log.Printf("Query added without newline: %q\n", item)
@@ -295,8 +296,8 @@ func (b *BufferflowGrbl) Unpause() {
 
 func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool {
 	// remove comments
-	cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
-	cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
+	//cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
+	//cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
 	if match, _ := regexp.MatchString("[!~\\?]", cmd); match {
 		log.Printf("Found cmd that should skip buffer. cmd:%v\n", cmd)
 		return true
@@ -306,8 +307,8 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool 
 
 func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) bool {
 	// remove comments
-	cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
-	cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
+	//cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
+	//cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
 	if match, _ := regexp.MatchString("[!]", cmd); match {
 		log.Printf("Found cmd that should pause buffer. cmd:%v\n", cmd)
 		return true
@@ -317,8 +318,8 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) bool
 
 func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bool {
 
-	cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
-	cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
+	//cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
+	//cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
 	if match, _ := regexp.MatchString("[~]", cmd); match {
 		log.Printf("Found cmd that should unpause buffer. cmd:%v\n", cmd)
 		return true
@@ -328,8 +329,8 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bo
 
 func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool {
 
-	cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
-	cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
+	//cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
+	//cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
 	if match, _ := regexp.MatchString("(\u0018)", cmd); match {
 		log.Printf("Found cmd that should wipe out and reset buffer. cmd:%v\n", cmd)
 
