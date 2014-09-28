@@ -68,6 +68,14 @@ func (p *serport) reader() {
 		ch := make([]byte, 1024)
 		n, err := p.portIo.Read(ch)
 
+		//if we detect that port is closing, break out o this for{} loop.
+		if p.isClosing {
+			strmsg := "Shutting down reader on " + p.portConf.Name
+			log.Println(strmsg)
+			h.broadcastSys <- []byte(strmsg)
+			break
+		}
+
 		// read can return legitimate bytes as well as an error
 		// so process the bytes if n > 0
 		if n > 0 {
@@ -112,13 +120,6 @@ func (p *serport) reader() {
 			}
 		}
 
-		if p.isClosing {
-			strmsg := "Shutting down reader on " + p.portConf.Name
-			log.Println(strmsg)
-			h.broadcastSys <- []byte(strmsg)
-			break
-		}
-
 		// double check that we got characters in the buffer
 		// before deciding if an EOF is legitimately a reason
 		// to close the port because we're seeing that on some
@@ -143,28 +144,6 @@ func (p *serport) reader() {
 				break
 			}
 		}
-
-		// loop thru and look for a newline
-		/*
-			for i := 0; i < n; i++ {
-				// see if we hit a newline
-				if ch[i] == '\n' {
-					// we are done with the line
-					h.broadcastSys <- buf.Bytes()
-					buf.Reset()
-				} else {
-					// append to buffer
-					buf.WriteString(string(ch[:n]))
-				}
-			}*/
-		/*
-			buf.WriteString(string(ch[:n]))
-			log.Print(string(ch[:n]))
-			if string(ch[:n]) == "\n" {
-				h.broadcastSys <- buf.Bytes()
-				buf.Reset()
-			}
-		*/
 	}
 	p.portIo.Close()
 }
@@ -315,7 +294,6 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
-
 	} else if buftype == "dummypause" {
 
 		// this is a dummy pause type bufferflow object
@@ -325,16 +303,14 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
-
 	} else if buftype == "grbl" {
-		// this is a dummy pause type bufferflow object
-		// to test artificially a delay on the serial port write
-		// it just pauses 3 seconds on each serial port write
-		bw := &BufferflowGrbl{}
+		// grbl bufferflow
+		// store port as parent_serport for use in intializing a status query loop for '?'
+		bw := &BufferflowGrbl{Name: "grbl", parent_serport: p}
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
-	} else {
+	}else {
 		bw := &BufferflowDefault{}
 		bw.Init()
 		bw.Port = portname
@@ -352,7 +328,10 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 
 func spHandlerClose(p *serport) {
 	p.isClosing = true
-	// close the port
+	//close the port
+	//elicit response from hardware to close out p.reader()
+	_ , _ = p.portIo.Write([]byte("?"))
+
 	p.bufferwatcher.Close()
 	p.portIo.Close()
 	// unregister myself
