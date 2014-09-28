@@ -54,6 +54,8 @@ func (b *BufferflowGrbl) Init() {
 	b.qry, _ = regexp.Compile("\\?")
 	b.rpt, _ = regexp.Compile("^<")
 
+	//initialize query loop
+	b.rptQueryLoop(b.parent_serport)
 }
 
 func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) (bool, bool) {
@@ -183,7 +185,7 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 			//grbl init line received, unpause and allow buffered input to send to grbl
 			if b.GetPaused() { b.SetPaused(false) }
 
-			//b.q.Delete()
+			b.version = element //save element in version
 
 			log.Printf("Grbl buffers cleared - ready for input")
 			//should I also clear the system buffers here? not sure how other than sending ctrl+x through spWrite.
@@ -253,7 +255,19 @@ func (b *BufferflowGrbl) BreakApartCommands(cmd string) []string {
 		item = regexp.MustCompile(";.*").ReplaceAllString(item, "")
 		item = strings.Replace(item," ","",-1)
 
-		if item == "?" {
+		if item == "*init*"{ //return init string to update grbl widget when already connected to grbl
+			m := DataPerLine{b.Port, b.version + "\n"}
+			bm, err := json.Marshal(m)
+			if err == nil {
+				h.broadcastSys <- bm
+			}
+		} else if item == "*status*"{ //return status when client first connects to existing open port 
+			m := DataPerLine{b.Port, b.LastStatus + "\n"}
+			bm, err := json.Marshal(m)
+			if err == nil {
+				h.broadcastSys <- bm
+			}
+		} else if item == "?" {
 			log.Printf("Query added without newline: %q\n", item)
 			finalCmds = append(finalCmds, item) //append query request without newline character
 		} else if item != "" {
