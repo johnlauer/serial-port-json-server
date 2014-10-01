@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	version      = "1.72"
-	versionFloat = float32(1.72)
+	version      = "1.73"
+	versionFloat = float32(1.73)
 	addr         = flag.String("addr", ":8989", "http service address")
 	assets       = flag.String("assets", defaultAssetPath(), "path to assets")
 	//verbose      = flag.Bool("v", true, "show debug logging")
