@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.7
+Version 1.74
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
@@ -42,18 +42,18 @@ How to Build
 	On Linux, Mac, Raspberry Pi, Beagle Bone Black
 	export PATH=$PATH:/usr/local/go/bin
 	On Windows, use the Environment Variables dialog by right-click My Computer
-4. Define your GOPATH variable. This is your personal working folder for all your
-Go code. This is important because you will be retrieving several projects
-from Github and Go needs to know where to download all the files and where to 
-build the directory structure. On my Windows computer I created a folder called
-C:\Users\John\go and set GOPATH=C:\Users\John\go
+4. Define your GOPATH variable and create the folder to match. This is your personal working folder for all yourGo code. This is important because you will be retrieving several projects from Github and Go needs to know where to download all the files and where to build the directory structure. On my Windows computer I created a folder called C:\Users\John\go and set GOPATH=C:\Users\John\go
+	On Mac
+	export GOPATH=/Users/john/go
+	On Linux, Raspberry Pi, Beagle Bone Black, Intel Edison
+	export GOPATH=/home/john/go
+	On Windows, use the Environment Variables dialog by right-click My Computer to create GOPATH
 5. Change directory into your GOPATH
-6. Type "go get github.com/johnlauer/serial-port-json-server". This will retrieve
-this Github project and all dependent projects.
+6. Type "go get github.com/johnlauer/serial-port-json-server". This will retrieve this Github project and all dependent projects. It takes some time to run this.
 7. Then change direcory into github.com\johnlauer\serial-port-json-server. 
-8. Type "go build" when you're inside that directory and it will create a binary 
-called serial-port-json-server
-9. Run it by typing ./serial-port-json-server
+8. Type "go build" when you're inside that directory and it will create a binary called serial-port-json-server
+9. Run it by typing ./serial-port-json-server or on Windows run serial-port-json-server.exe
+10. If you have a firewall on the computer running the serial-port-json-server you must allow port 8989 in the firewall.
 
 Supported Commands
 -------
