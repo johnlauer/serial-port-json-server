@@ -2,7 +2,7 @@ package main
 
 import (
 	//"fmt"
-	"github.com/lxn/win"
+	//"github.com/lxn/win"
 	"github.com/mattn/go-ole"
 	"github.com/mattn/go-ole/oleutil"
 	//"github.com/tarm/goserial"
@@ -13,7 +13,7 @@ import (
 	//"encoding/binary"
 	"strconv"
 	"sync"
-	"syscall"
+	//"syscall"
 )
 
 var (
@@ -165,6 +165,7 @@ func getListViaOpen() ([]OsSerialPort, os.SyscallError) {
 	return list[:igood], err
 }
 
+/*
 func getListViaRegistry() ([]OsSerialPort, os.SyscallError) {
 
 	log.Println("Doing getListViaRegistry()")
@@ -214,6 +215,7 @@ func getListViaRegistry() ([]OsSerialPort, os.SyscallError) {
 	win.RegCloseKey(root)
 	return list, err
 }
+*/
 
 func convertByteArrayToUint16Array(b []byte, mylen uint32) []uint16 {
 
