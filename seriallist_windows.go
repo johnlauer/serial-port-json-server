@@ -2,17 +2,18 @@ package main
 
 import (
 	//"fmt"
-	//"github.com/lxn/win"
+	"github.com/lxn/win"
 	"github.com/mattn/go-ole"
 	"github.com/mattn/go-ole/oleutil"
 	//"github.com/tarm/goserial"
+	"github.com/johnlauer/goserial"
 	"log"
 	"os"
 	"strings"
 	//"encoding/binary"
-	//"strconv"
-	//"syscall"
+	"strconv"
 	"sync"
+	"syscall"
 )
 
 var (
@@ -32,6 +33,24 @@ func getList() ([]OsSerialPort, os.SyscallError) {
 	serialListWindowsWg.Add(1)
 	arr, sysCallErr := getListViaWmiPnpEntity()
 	serialListWindowsWg.Done()
+	//arr = make([]OsSerialPort, 0)
+
+	// see if array has any data, if not fallback to the traditional
+	// com port list model
+	if len(arr) == 0 {
+		// assume it failed
+		arr, sysCallErr = getListViaOpen()
+	}
+
+	// see if array has any data, if not fallback to looking at
+	// the registry list
+	/*
+		arr = make([]OsSerialPort, 0)
+		if len(arr) == 0 {
+			// assume it failed
+			arr, sysCallErr = getListViaRegistry()
+		}
+	*/
 
 	return arr, sysCallErr
 }
@@ -41,6 +60,8 @@ func getListSynchronously() {
 }
 
 func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
+
+	log.Println("Doing getListViaWmiPnpEntity()")
 
 	// this method panics a lot and i'm not sure why, just catch
 	// the panic and return empty list
@@ -117,9 +138,9 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 	return list, err
 }
 
-/*
 func getListViaOpen() ([]OsSerialPort, os.SyscallError) {
 
+	log.Println("Doing getListViaOpen(). Will try to open COM1 to COM99.")
 	var err os.SyscallError
 	list := make([]OsSerialPort, 100)
 	var igood int = 0
@@ -132,7 +153,8 @@ func getListViaOpen() ([]OsSerialPort, os.SyscallError) {
 			//log.Println("Able to open port", prtname)
 			list[igood].Name = prtname
 			sp.Close()
-			list[igood].FriendlyName = getFriendlyName(prtname)
+			list[igood].FriendlyName = prtname
+			//list[igood].FriendlyName = getFriendlyName(prtname)
 			igood++
 		}
 	}
@@ -145,6 +167,7 @@ func getListViaOpen() ([]OsSerialPort, os.SyscallError) {
 
 func getListViaRegistry() ([]OsSerialPort, os.SyscallError) {
 
+	log.Println("Doing getListViaRegistry()")
 	var err os.SyscallError
 	var root win.HKEY
 	rootpath, _ := syscall.UTF16PtrFromString("HARDWARE\\DEVICEMAP\\SERIALCOMM")
@@ -206,6 +229,15 @@ func convertByteArrayToUint16Array(b []byte, mylen uint32) []uint16 {
 
 func getFriendlyName(portname string) string {
 
+	// this method panics a lot and i'm not sure why, just catch
+	// the panic and return empty list
+	defer func() {
+		if e := recover(); e != nil {
+			// e is the interface{} typed-value we passed to panic()
+			log.Println("Got panic: ", e) // Prints "Whoops: boom!"
+		}
+	}()
+
 	var friendlyName string
 
 	// init COM, oh yeah
@@ -247,4 +279,3 @@ func getFriendlyName(portname string) string {
 
 	return friendlyName
 }
-*/
