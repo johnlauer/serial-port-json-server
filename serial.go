@@ -389,9 +389,39 @@ func writeToChannels(cmds []string, idArr []string, bufTypeArr []string) {
 
 func spList() {
 
+	// call our os specific implementation of getting the serial list
 	list, _ := getList()
+
+	// do a quick loop to see if any of our open ports
+	// did not end up in the list port list. this can
+	// happen on windows in a fallback scenario where an
+	// open port can't be identified because it is locked,
+	// so just solve that by manually inserting
+	for port := range sh.ports {
+
+		isFound := false
+		for _, item := range list {
+			if strings.ToLower(port.portConf.Name) == strings.ToLower(item.Name) {
+				isFound = true
+			}
+		}
+
+		if !isFound {
+			// artificially push to front of port list
+			log.Println("Did not find an open port in the serial port list. We are going to artificially push it onto the list. port:%v", port.portConf.Name)
+			var ossp OsSerialPort
+			ossp.Name = port.portConf.Name
+			ossp.FriendlyName = port.portConf.Name
+			list = append([]OsSerialPort{ossp}, list...)
+		}
+	}
+
+	// we have a full clean list of ports now. iterate thru them
+	// to append the open/close state, baud rates, etc to make
+	// a super clean nice list to send back to browser
 	n := len(list)
 	spl := SpPortList{make([]SpPortItem, n, n)}
+
 	ctr := 0
 	for _, item := range list {
 		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false, "", availableBufferAlgorithms, versionFloat}
