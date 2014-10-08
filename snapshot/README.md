@@ -1,10 +1,10 @@
 serial-port-json-server
 =======================
-Version 1.74
+Version 1.75
 
-A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, Beagle Bone Black, or Intel Edison that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
+A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
-The app is written in Go. It has an embedded web server and websocket server. The server runs on the standard port of localhost:8989. You can connect to it locally with your browser to interact by visiting http://localhost:8989. The websocket is technically running at ws://localhost/ws. You can of course connect to your websocket from any other computer to bind in remotely. For example, just connect to ws://192.168.1.10/ws if you are on a remote host where 192.168.1.10 is your device's actual IP address.
+The app is written in Go. It has an embedded web server and websocket server. The server runs on the standard port of localhost:8989. You can connect to it locally with your browser to interact by visiting http://localhost:8989. The websocket is technically running at ws://localhost/ws. You can of course connect to your websocket from any other computer to bind in remotely. For example, just connect to ws://192.168.1.10/ws if you are on a remote host where 192.168.1.10 is your devices actual IP address.
 
 The app is one executable with everything you need and is available ready-to-go for every major platform. It is a multi-threaded app that uses all of the cool techniques available in Go including extensive use of channels (threads) to create a super-responsive app.
 
@@ -12,7 +12,22 @@ If you are a web developer and want to write a web application that connects to 
 
 For example, if you wanted to create a Gcode Sender web app to enable people to send 3D print or milling commands from your site, this would be a perfect use case. Or if you've created an oscilloscope web app that connects to an Arduino, it would be another great use case. Finally you can write web apps that interact with a user's local hardware.
 
-Thanks go to gary.burd.info for the websocket example in Go. Thanks also go to tarm/goserial for the serial port base implementation. Thanks go to Jarret Luft as well for the major work he did on the Grbl buffer and other bug fixes to the overall code base.
+Thanks go to gary.burd.info for the websocket example in Go. Thanks also go to tarm/goserial for the serial port base implementation. Thanks go to Jarret Luft at well for building the Grbl buffer and helping on global code changes to make everything better.
+
+Example Use Case
+---------
+Here is a screenshot of the Serial Port JSON Server being used inside the ChiliPeppr Serial Port web console app.
+http://chilipeppr.com/serialport
+<img src="http://chilipeppr.com/img/screenshots/serialportjsonserver2.png">
+
+This is the Serial Port JSON Server being used inside the TinyG workspace in ChiliPeppr.
+http://chilipeppr.com/tinyg
+<img src="http://chilipeppr.com/img/screenshots/serialportjsonserver3.png">
+
+There is also a JSFiddle you can fork to create your own interface to the Serial Port JSON Server for your own project.
+http://jsfiddle.net/chilipeppr/vetj5fvx/
+<img src="http://chilipeppr.com/img/screenshots/serialportjsonserver_jsfiddle.png">
+
 
 Running
 ---------
@@ -34,9 +49,13 @@ Running on alternate port:
 - Windows 
 `serial-port-json-server.exe -addr :8000`
 
+Here's a screenshot of a successful run on Windows x64. Make sure you allow the firewall to give access to Serial Port JSON Server or you'll wonder why it's not working.
+<img src="http://chilipeppr.com/img/screenshots/serialportjsonserver_running.png">
+
+
 How to Build
 ---------
-Video tutorial on Mac: https://www.youtube.com/watch?v=4Hou06bOuHc
+Video tutorial of building SPJS on a Mac: https://www.youtube.com/watch?v=4Hou06bOuHc
 
 1. Install Go (http://golang.org/doc/install)
 2. If you're on a Mac, install Xcode from the Apple Store because you'll need gcc to compile the native code for a Mac. If you're on Windows, Linux, Raspberry Pi, or Beagle Bone you are all set.
@@ -87,6 +106,10 @@ FAQ
 
 Revisions
 -------
+Changes in 1.75
+- Tweaked the order of operations for pausing/unpausing the buffer in Grbl and TinyG to account for rare cases where a deadlock could occur. This should guarantee no dead-locking.
+- Jarret Luft added an artificial % buffer wipe to Grbl buffer to mimic to some degree the buffer wiping available on TinyG.
+
 Changes in 1.7
 - sendjson now supported. Will give back onQueue, onWrite, onComplete
 - Moved TinyG buffer to serial byte counting.
