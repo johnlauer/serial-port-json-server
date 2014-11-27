@@ -36,6 +36,8 @@ Running on alternate port:
 
 How to Build
 ---------
+Video tutorial on Mac: https://www.youtube.com/watch?v=4Hou06bOuHc
+
 1. Install Go (http://golang.org/doc/install)
 2. If you're on a Mac, install Xcode from the Apple Store because you'll need gcc to compile the native code for a Mac. If you're on Windows, Linux, Raspberry Pi, or Beagle Bone you are all set.
 3. Get go into your path so you can run "go" from any directory:
