@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"regexp"
-	//"strconv"
+	"strconv"
 	"strings"
 	"time"
 	"sync"
@@ -28,20 +28,20 @@ type BufferflowGrbl struct {
 	parent_serport *serport
 
 	reNewLine *regexp.Regexp
-	re        *regexp.Regexp
+	ok        *regexp.Regexp
+	err       *regexp.Regexp
 	initline  *regexp.Regexp
 	qry       *regexp.Regexp
 	rpt       *regexp.Regexp
 }
 
 func (b *BufferflowGrbl) Init() {
-	b.Paused = false //set pause true until initline received indicating grbl has initialized
+	b.lock = &sync.Mutex{}
+	b.SetPaused(false) 
 
 	log.Println("Initting GRBL buffer flow")
 	b.BufferMax = 127 //max buffer size 127 bytes available
-	//b.BufferSize = 0  //initialize buffer at zero bytes
 
-	b.lock = &sync.Mutex{}
 	b.q = NewQueue()
 
 	//create channels
@@ -49,7 +49,8 @@ func (b *BufferflowGrbl) Init() {
 
 	//define regex
 	b.reNewLine, _ = regexp.Compile("\\r{0,1}\\n{1,2}") //\\r{0,1}
-	b.re, _ = regexp.Compile("^(ok|error)")
+	b.ok, _ = regexp.Compile("^ok")
+	b.err, _ = regexp.Compile("^error")
 	b.initline, _ = regexp.Compile("^Grbl")
 	b.qry, _ = regexp.Compile("\\?")
 	b.rpt, _ = regexp.Compile("^<")
@@ -61,16 +62,6 @@ func (b *BufferflowGrbl) Init() {
 func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) (bool, bool) {
 	log.Printf("BlockUntilReady() start\n")
 
-	//if b.qry.MatchString(cmd){
-	//	return true //return if cmd is a query request, even if buffer is paused
-	//}
-
-	//Here we add the length of the new command to the buffer size and append the length
-	//to the buffer array.  Check if buffersize > buffermax and if so we pause and await free space before
-	//sending the command to grbl.
-	//b.BufferSize += len(cmd)
-	//b.BufferSizeArray = append(b.BufferSizeArray, len(cmd))
-
 	b.q.Push(cmd, id)
 
 	log.Printf("New line length: %v, buffer size increased to:%v\n", len(cmd), b.q.LenOfCmds())
@@ -81,7 +72,7 @@ func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) (bool, bool) {
 		log.Printf("Buffer Full - Will send this command when space is available")
 	}
 
-	if b.Paused {
+	if b.GetPaused() {
 		log.Println("It appears we are being asked to pause, so we will wait on b.sem")
 		// We are being asked to pause our sending of commands
 
@@ -101,10 +92,9 @@ func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) (bool, bool) {
 			// this function returns
 			return false, false
 		}
+
+		log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
 	}
-
-	log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
-
 	return true, true
 }
 
@@ -139,16 +129,25 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 		log.Printf("Working on element:%v, index:%v", element, index)
 
 		//check for 'ok' or 'error' response indicating a gcode line has been processed
-		if b.re.MatchString(element) {
-
+		if b.ok.MatchString(element) || b.err.MatchString(element){
 			if b.q.Len() > 0 {
 				doneCmd, id := b.q.Poll()
 
-				// Send cmd:"Complete" back
-				m := DataCmdComplete{"Complete", id, b.Port, b.q.LenOfCmds(), doneCmd}
-				bm, err := json.Marshal(m)
-				if err == nil {
-					h.broadcastSys <- bm
+				if b.ok.MatchString(element){
+					// Send cmd:"Complete" back
+					m := DataCmdComplete{"Complete", id, b.Port, b.q.LenOfCmds(), doneCmd}
+					bm, err := json.Marshal(m)
+					if err == nil {
+						h.broadcastSys <- bm
+					}
+				} else if b.err.MatchString(element){
+					// Send cmd:"Error" back
+					log.Printf("Error Response Received:%v, id:%v", doneCmd, id)
+					m := DataCmdComplete{"Error", id, b.Port, b.q.LenOfCmds(), doneCmd}
+					bm, err := json.Marshal(m)
+					if err == nil {
+						h.broadcastSys <- bm
+					}
 				}
 
 				log.Printf("Buffer decreased to itemCnt:%v, lenOfBuf:%v\n", b.q.Len(), b.q.LenOfCmds())
@@ -162,6 +161,8 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 
 				// if we are paused, tell us to unpause cuz we have clean buffer room now
 				if b.GetPaused() {
+					b.SetPaused(false) //set paused to false first, then release the hold on the buffer
+					
 					go func() {
 						gcodeline := element
 
@@ -176,21 +177,22 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 				}
 
 				// let's set that we are no longer paused
-				b.SetPaused(false) //b.Paused = false
+				
 			}
 
 		//check for the grbl init line indicating the arduino is ready to accept commands
 		//could also pull version from this string, if we find a need for that later
 		} else if b.initline.MatchString(element) {
-			//grbl init line received, unpause and allow buffered input to send to grbl
+			//grbl init line received, clear anything from current buffer and unpause
+			b.LocalBufferWipe(b.parent_serport)
+			
 			if b.GetPaused() { b.SetPaused(false) }
-
+			
 			b.version = element //save element in version
 
 			log.Printf("Grbl buffers cleared - ready for input")
-			//should I also clear the system buffers here? not sure how other than sending ctrl+x through spWrite.
 			go func() {
-				b.sem <- 2 //since grbl was just initialized or reset, clear buffer
+				b.sem <- 2 //since grbl was just initialized or reset, if there was something holding on write, it needs to be cleared as well
 			}()
 
 		//Check for report output, compare to last report output, if different return to client to update status; otherwise ignore status.
@@ -267,9 +269,13 @@ func (b *BufferflowGrbl) BreakApartCommands(cmd string) []string {
 			if err == nil {
 				h.broadcastSys <- bm
 			}
-		} else if item == "?" {
+		} else if item == "?"{
 			log.Printf("Query added without newline: %q\n", item)
 			finalCmds = append(finalCmds, item) //append query request without newline character
+		} else if item == "%" {
+			log.Printf("Wiping Grbl BufferFlow")
+			b.LocalBufferWipe(b.parent_serport)
+			//dont add this command to the list of finalCmds
 		} else if item != "" {
 			log.Printf("Re-adding newline to item:%v\n", item)
 			s := item + "\n"
@@ -312,7 +318,7 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool 
 	// remove comments
 	//cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
 	//cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
-	if match, _ := regexp.MatchString("[!~\\?]", cmd); match {
+	if match, _ := regexp.MatchString("[!~\\?]|(\u0018)", cmd); match {
 		log.Printf("Found cmd that should skip buffer. cmd:%v\n", cmd)
 		return true
 	}
@@ -447,3 +453,36 @@ func (b *BufferflowGrbl) SetPaused(isPaused bool) {
 	b.Paused = isPaused
 }
 
+//local version of buffer wipe loop needed to handle pseudo clear buffer (%) without passing that value on to
+func (b *BufferflowGrbl) LocalBufferWipe(p *serport){
+	log.Printf("Pseudo command received to wipe grbl buffer but *not* send on to grbl controller.")
+
+	// consume all stuff queued
+	func() {
+		ctr := 0
+
+		keepLooping := true
+		for keepLooping {
+			select {
+			case d, ok := <-p.sendBuffered:
+				log.Printf("Consuming sendBuffered queue. ok:%v, d:%v, id:%v\n", ok, string(d.data), string(d.id))
+				ctr++
+
+				p.itemsInBuffer--
+				if ok == false {
+					keepLooping = false
+				}
+			default:
+				keepLooping = false
+				log.Println("Hit default in select clause")
+			}
+		}
+		log.Printf("Done consuming sendBuffered cmds. ctr:%v\n", ctr)
+	}()
+
+	b.ReleaseLock()
+
+	// let user know we wiped queue
+	log.Printf("itemsInBuffer:%v\n", p.itemsInBuffer)
+	h.broadcastSys <- []byte("{\"Cmd\":\"WipedQueue\",\"QCnt\":" + strconv.Itoa(p.itemsInBuffer) + ",\"Port\":\"" + p.portConf.Name + "\"}")
+}
