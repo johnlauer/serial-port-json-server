@@ -311,6 +311,10 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 
 				// if we are paused, tell us to unpause cuz we have clean buffer room now
 				if b.GetPaused() {
+
+					// changed b.SetPaused to here per version 1.75 and Jarret's testing
+					b.SetPaused(false) //set paused to false first, then release the hold on the buffer
+
 					// do this in a goroutine because if multiple sends into the channel
 					// occur then the write into the channel will block. we also want
 					// to print out debug info when the channel gets consumed so this
@@ -331,7 +335,8 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 				}
 
 				// let's set that we are no longer paused
-				b.SetPaused(false) //b.Paused = false
+				// Not running b.SetPaused() here anymore per version 1.75
+				//b.SetPaused(false) //b.Paused = false
 			}
 			//b.lock.Unlock()
 			//log.Printf("Done locking inside OnIncomingData\n")

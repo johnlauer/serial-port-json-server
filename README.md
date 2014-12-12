@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.74
+Version 1.75
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
@@ -106,6 +106,10 @@ FAQ
 
 Revisions
 -------
+Changes in 1.75
+- Tweaked the order of operations for pausing/unpausing the buffer in Grbl and TinyG to account for rare cases where a deadlock could occur. This should guarantee no dead-locking.
+- Jarret Luft added an artificial % buffer wipe to Grbl buffer to mimic to some degree the buffer wiping available on TinyG.
+
 Changes in 1.7
 - sendjson now supported. Will give back onQueue, onWrite, onComplete
 - Moved TinyG buffer to serial byte counting.
