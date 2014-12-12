@@ -9,11 +9,15 @@ import (
 	"log"
 	"net/http"
 	//"path/filepath"
+	"net"
+	//"os"
+	"errors"
+	//"fmt"
 	"text/template"
 )
 
 var (
-	version      = "1.74"
+	version      = "1.75"
 	versionFloat = float32(1.74)
 	addr         = flag.String("addr", ":8989", "http service address")
 	assets       = flag.String("assets", defaultAssetPath(), "path to assets")
@@ -48,13 +52,22 @@ func main() {
 	flag.Parse()
 	f := flag.Lookup("addr")
 	log.Println("Version:" + version)
-	log.Print("Started server and websocket on localhost" + f.Value.String())
+
+	ip, err := externalIP()
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Print("Started server and websocket on " + ip + ":" + f.Value.String())
 	//homeTempl = template.Must(template.ParseFiles(filepath.Join(*assets, "home.html")))
 
 	if !*verbose {
-		log.Println("Verbose mode not specified, stopping all further logging")
+		log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
 		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
 	}
+
+	log.Println("The Serial Port JSON Server is now running.")
+	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
 
 	// launch the hub routine which is the singleton for the websocket server
 	go h.run()
@@ -68,6 +81,92 @@ func main() {
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal("Error ListenAndServe:", err)
 	}
+
+}
+
+func externalIP() (string, error) {
+	//log.Println("Getting external IP")
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		log.Println("Got err getting external IP addr")
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			//log.Println("Iface down")
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			//log.Println("Loopback")
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			log.Println("Got err on iface.Addrs()")
+			return "", err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				//log.Println("Ip was nil or loopback")
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				//log.Println("Was not ipv4 addr")
+				continue // not an ipv4 address
+			}
+			//log.Println("IP is ", ip.String())
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("are you connected to the network?")
+}
+
+func whatismyip() {
+	/*
+		ifaces, err := net.Interfaces()
+		// handle err
+		for _, i := range ifaces {
+			addrs, err := i.Addrs()
+			// handle err
+			if err != nil {
+				log.Println("got err")
+			}
+			for _, addr := range addrs {
+				switch v := addr.(type) {
+				case *net.IPAddr:
+					// process IP address
+					//log.Println((*net.IPAddr))
+				}
+
+			}
+		}*/
+
+	/*
+		addrs, _ := net.InterfaceAddrs()
+		if err != nil {
+			os.Stderr.WriteString("Oops: " + err.Error() + "\n")
+			os.Exit(1)
+		}
+
+		log.Println("The IP Address of this server is:")
+		for _, a := range addrs {
+			log.Println("In loop")
+			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					//os.Stdout.WriteString(ipnet.IP.String() + "\n")
+					log.Println(ipnet.IP.String())
+				}
+			}
+		}
+	*/
 }
 
 var homeTemplate = template.Must(template.New("home").Parse(homeTemplateHtml))
