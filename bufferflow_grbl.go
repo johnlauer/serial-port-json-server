@@ -37,7 +37,7 @@ type BufferflowGrbl struct {
 
 func (b *BufferflowGrbl) Init() {
 	b.lock = &sync.Mutex{}
-	b.SetPaused(false) 
+	b.SetPaused(false, 1) 
 
 	log.Println("Initting GRBL buffer flow")
 	b.BufferMax = 127 //max buffer size 127 bytes available
@@ -68,7 +68,7 @@ func (b *BufferflowGrbl) BlockUntilReady(cmd string, id string) (bool, bool) {
 	log.Println(b.q)
 
 	if b.q.LenOfCmds() >= b.BufferMax {
-		b.SetPaused(true)
+		b.SetPaused(true, 0)
 		log.Printf("Buffer Full - Will send this command when space is available")
 	}
 
@@ -160,24 +160,7 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 				log.Printf("Grbl just completed a line of gcode\n")
 
 				// if we are paused, tell us to unpause cuz we have clean buffer room now
-				if b.GetPaused() {
-					b.SetPaused(false) //set paused to false first, then release the hold on the buffer
-					
-					go func() {
-						gcodeline := element
-
-						log.Printf("StartSending Semaphore goroutine created for gcodeline:%v\n", gcodeline)
-						b.sem <- 1
-
-						defer func() {
-							gcodeline := gcodeline
-							log.Printf("StartSending Semaphore just got consumed by the BlockUntilReady() thread for the gcodeline:%v\n", gcodeline)
-						}()
-					}()
-				}
-
-				// let's set that we are no longer paused
-				
+				if b.GetPaused() { b.SetPaused(false, 1) }
 			}
 
 		//check for the grbl init line indicating the arduino is ready to accept commands
@@ -186,15 +169,11 @@ func (b *BufferflowGrbl) OnIncomingData(data string) {
 			//grbl init line received, clear anything from current buffer and unpause
 			b.LocalBufferWipe(b.parent_serport)
 			
-			if b.GetPaused() { b.SetPaused(false) }
+			//unpause buffer but wipe the command in the queue as grbl has restarted.
+			if b.GetPaused() { b.SetPaused(false, 2) }
 			
 			b.version = element //save element in version
-
-			log.Printf("Grbl buffers cleared - ready for input")
-			go func() {
-				b.sem <- 2 //since grbl was just initialized or reset, if there was something holding on write, it needs to be cleared as well
-			}()
-
+		
 		//Check for report output, compare to last report output, if different return to client to update status; otherwise ignore status.
 		} else if b.rpt.MatchString(element){
 			if(element == b.LastStatus){
@@ -291,26 +270,14 @@ func (b *BufferflowGrbl) BreakApartCommands(cmd string) []string {
 }
 
 func (b *BufferflowGrbl) Pause() {
-	b.SetPaused(true) //b.Paused = true
+	b.SetPaused(true, 0) 
 	//b.BypassMode = false // turn off bypassmode in case it's on
 	log.Println("Paused buffer on next BlockUntilReady() call")
 }
 
 func (b *BufferflowGrbl) Unpause() {
-	b.SetPaused(false) //b.Paused = false
-	
-	log.Println("Unpause(), so we will send signal of 1 to b.sem to unpause the BlockUntilReady() thread")
-	go func() {
-
-		log.Printf("Unpause() Semaphore goroutine created.\n")
-
-		// sending a 1 asks BlockUntilReady() to move forward
-		b.sem <- 1
-
-		defer func() {
-			log.Printf("Unpause() Semaphore just got consumed by the BlockUntilReady()\n")
-		}()
-	}()
+	//unpause buffer by setting paused to false and passing a 1 to b.sem
+	b.SetPaused(false, 1)
 	log.Println("Unpaused buffer inside BlockUntilReady() call")
 }
 
@@ -380,19 +347,10 @@ func (b *BufferflowGrbl) ReleaseLock() {
 
 	b.q.Delete()
 
-	//b.Paused = false  -- should this still be unpausing here?
-
 	log.Println("ReleaseLock(), so we will send signal of 2 to b.sem to unpause the BlockUntilReady() thread")
-	go func() {
-
-		log.Printf("ReleaseLock() Semaphore goroutine created.\n")
-
-		// sending a 2 asks BlockUntilReady() to cancel the send
-		b.sem <- 2
-		defer func() {
-			log.Printf("ReleaseLock() Semaphore just got consumed by the BlockUntilReady()\n")
-		}()
-	}()
+	
+	//release lock, send signal 2 to b.sem
+	b.SetPaused(false, 2)
 }
 
 func (b *BufferflowGrbl) IsBufferGloballySendingBackIncomingData() bool {
@@ -447,10 +405,21 @@ func (b *BufferflowGrbl) GetPaused() bool {
 
 //	Sets the paused state of this buffer
 //	go-routine safe.
-func (b *BufferflowGrbl) SetPaused(isPaused bool) {
+func (b *BufferflowGrbl) SetPaused(isPaused bool, semRelease int) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	b.Paused = isPaused
+
+	//if we are unpausing the buffer, we need to send a signal to release the channel
+	if isPaused == false{
+		go func() {
+			// sending a 2 asks BlockUntilReady() to cancel the send
+			b.sem <- semRelease
+			defer func() {
+				log.Printf("Unpause Semaphore just got consumed by the BlockUntilReady()\n")
+			}()
+		}()
+	}
 }
 
 //local version of buffer wipe loop needed to handle pseudo clear buffer (%) without passing that value on to
