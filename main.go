@@ -59,7 +59,7 @@ func main() {
 		log.Println(err)
 	}
 
-	log.Print("Started server and websocket on " + ip + ":" + f.Value.String())
+	log.Print("Started server and websocket on " + ip + "" + f.Value.String())
 	//homeTempl = template.Must(template.ParseFiles(filepath.Join(*assets, "home.html")))
 
 	log.Println("The Serial Port JSON Server is now running.")
