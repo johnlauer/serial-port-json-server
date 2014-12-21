@@ -49,6 +49,9 @@ type BufferflowTinyg struct {
 
 	// use thread locking for b.Paused
 	lock *sync.Mutex
+
+	// use more thread locking for b.semLock
+	semLock *sync.Mutex
 }
 
 type GcodeCmd struct {
@@ -59,6 +62,9 @@ type GcodeCmd struct {
 func (b *BufferflowTinyg) Init() {
 
 	b.Paused = false
+	b.lock = &sync.Mutex{}
+	b.semLock = &sync.Mutex{}
+	//b.SetPaused(false, 2)
 
 	/* Slot Approach */
 	//b.SlotMax = 4 // at most queue up 2 slots, i.e. 2 gcode commands
@@ -77,7 +83,6 @@ func (b *BufferflowTinyg) Init() {
 	/* Start Buffer Size Approach Items */
 	b.BufferMax = 200 //max buffer size 254 bytes available
 	//b.BufferSize = 0  //initialize buffer at zero bytes
-	b.lock = &sync.Mutex{}
 	b.q = NewQueue()
 	//b.lock = sync.Mutex
 	/* End Buffer Size Approach */
@@ -85,7 +90,15 @@ func (b *BufferflowTinyg) Init() {
 	//b.StartSending = 20
 	//b.StopSending = 18
 	//b.PauseOnEachSend = 0 * time.Millisecond
-	b.sem = make(chan int)
+
+	// make buffered channel big enough we won't overflow it
+	// meaning we get told b.sem on incoming data, so at most this could
+	// be the size of 1 character and the TinyG only allows 255, so just
+	// go high to make sure it's high enough to never block
+	// buffered
+	b.sem = make(chan int, 1000)
+	// non-buffered
+	//b.sem = make(chan int)
 
 	// start tinyg out in bypass mode because we don't really
 	// know if user put tinyg into qr response mode. what we'll
@@ -177,7 +190,7 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 		// this is sketchy. could we overrun the buffer by not counting !~%\n
 		// so to give extra room don't actually allow full serial buffer to
 		// be used in b.BufferMax
-		log.Printf("Not incrementing buffer size for cmd:%v\n", cmd)
+		//log.Printf("Not incrementing buffer size for cmd:%v\n", cmd)
 
 	}
 
@@ -187,12 +200,12 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 
 	//b.lock.Lock()
 	if b.q.LenOfCmds() >= b.BufferMax {
-		b.SetPaused(true) // b.Paused = true
+		b.SetPaused(true, 0) // b.Paused = true
 		log.Printf("It looks like the buffer is over the allowed size, so we are going to paused. Then when some incoming responses come in a check will occur to see if there's room to send this command. Pausing...")
 	}
 	//b.lock.Lock()
 
-	if b.GetPaused() == true {
+	if b.GetPaused() {
 		log.Println("It appears we are being asked to pause, so we will wait on b.sem")
 		// We are being asked to pause our sending of commands
 
@@ -229,7 +242,7 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 
 // Serial buffer size approach
 func (b *BufferflowTinyg) OnIncomingData(data string) {
-	log.Printf("OnIncomingData() start. data:%q\n", data)
+	//log.Printf("OnIncomingData() start. data:%q\n", data)
 
 	// Since OnIncomingData is in the reader thread, lock so the writer
 	// thread doesn't get messed up from all the bufferarray counting we're doing
@@ -242,7 +255,8 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 	//b.LatestData = regexp.MustCompile(">\\r\\nok").ReplaceAllString(b.LatestData, ">") //remove oks from status responses
 
 	arrLines := b.reNewLine.Split(b.LatestData, -1)
-	//log.Printf("arrLines:%v\n", arrLines)
+	//js, _ := json.Marshal(arrLines)
+	//log.Printf("cnt:%v, arrLines:%v\n", len(arrLines), string(js))
 
 	if len(arrLines) > 1 {
 		// that means we found a newline and have 2 or greater array values
@@ -307,33 +321,48 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 			// So we'll have to wait until the next time in here for this test to pass
 			if b.q.LenOfCmds() < b.BufferMax {
 
-				log.Printf("tinyg just completed a line of gcode\n")
+				log.Printf("tinyg just completed a line of gcode and there is room in buffer so setPaused(false)\n")
 
 				// if we are paused, tell us to unpause cuz we have clean buffer room now
 				if b.GetPaused() {
-
-					// changed b.SetPaused to here per version 1.75 and Jarret's testing
-					b.SetPaused(false) //set paused to false first, then release the hold on the buffer
-
-					// do this in a goroutine because if multiple sends into the channel
-					// occur then the write into the channel will block. we also want
-					// to print out debug info when the channel gets consumed so this
-					// helps us do that. however, this is a bit inefficient, so could
-					// convert b.sem to a buffered channel and just not get debug output
-					// or even move to a sync.lock.mutex
-					go func() {
-						gcodeline := element
-
-						log.Printf("StartSending Semaphore goroutine created for gcodeline:%v\n", gcodeline)
-						b.sem <- 1
-
-						defer func() {
-							gcodeline := gcodeline
-							log.Printf("StartSending Semaphore just got consumed by the BlockUntilReady() thread for the gcodeline:%v\n", gcodeline)
-						}()
-					}()
+					b.SetPaused(false, 1) //set paused to false first, then release the hold on the buffer
 				}
 
+				/*
+					// if we are paused, tell us to unpause cuz we have clean buffer room now
+					b.lock.Lock()
+					if b.Paused {
+
+						b.Paused = false
+
+						// send signal to the OnBlockUntilReady method
+						// to let it start running again
+						b.sem <- 1
+						// do this in a goroutine because if multiple sends into the channel
+						// occur then the write into the channel will block. we also want
+						// to print out debug info when the channel gets consumed so this
+						// helps us do that. however, this is a bit inefficient, so could
+						// convert b.sem to a buffered channel and just not get debug output
+						// or even move to a sync.lock.mutex
+
+							go func() {
+								gcodeline := element
+
+								// changed b.SetPaused to here per version 1.75 and Jarret's testing
+								//b.SetPaused(false) //set paused to false first, then release the hold on the buffer
+
+								log.Printf("StartSending Semaphore goroutine created for gcodeline:%v\n", gcodeline)
+								b.sem <- 1
+
+								defer func() {
+									gcodeline := gcodeline
+									log.Printf("StartSending Semaphore just got consumed by the BlockUntilReady() thread for the gcodeline:%v\n", gcodeline)
+								}()
+							}()
+
+					}
+					b.lock.Unlock()
+				*/
 				// let's set that we are no longer paused
 				// Not running b.SetPaused() here anymore per version 1.75
 				//b.SetPaused(false) //b.Paused = false
@@ -357,7 +386,7 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 	b.LatestData = arrLines[len(arrLines)-1]
 
 	//time.Sleep(3000 * time.Millisecond)
-	log.Printf("OnIncomingData() end.\n")
+	//log.Printf("OnIncomingData() end.\n")
 }
 
 // Clean out b.sem so it can truly block
@@ -421,7 +450,7 @@ func (b *BufferflowTinyg) BreakApartCommands(cmd string) []string {
 					finalCmds = append(finalCmds, s)
 					//log.Printf("Added cmd back with newline. New cmd item:'%v'\n", s)
 				} else {
-					log.Printf("Skipping adding cmd back cuz just empty newline. item:'%v'\n", item)
+					//log.Printf("Skipping adding cmd back cuz just empty newline. item:'%v'\n", item)
 					//log.Printf("Re-adding item to finalCmds without adding newline:%v\n", item)
 					//finalCmds = append(finalCmds, item)
 				}
@@ -471,9 +500,9 @@ func (b *BufferflowTinyg) Pause() {
 	//b.lock.Lock()
 	//defer b.lock.Unlock()
 
-	b.SetPaused(true) //b.Paused = true
+	b.SetPaused(true, 0) //b.Paused = true
 	//b.BypassMode = false // turn off bypassmode in case it's on
-	log.Println("Paused buffer on next BlockUntilReady() call")
+	//log.Println("Paused buffer on next BlockUntilReady() call")
 }
 
 func (b *BufferflowTinyg) Unpause() {
@@ -482,26 +511,28 @@ func (b *BufferflowTinyg) Unpause() {
 	//b.lock.Lock()
 	//defer b.lock.Unlock()
 
-	b.SetPaused(false) //b.Paused = false
-	log.Println("Unpause(), so we will send signal of 1 to b.sem to unpause the BlockUntilReady() thread")
+	b.SetPaused(false, 1) //b.Paused = false
+	//log.Println("Unpause(), so we will send signal of 1 to b.sem to unpause the BlockUntilReady() thread")
 
 	// do this as go-routine so we don't block on the b.sem <- 1 write
-	go func() {
+	/*
+		go func() {
 
-		log.Printf("Unpause() Semaphore goroutine created.\n")
-		// this is an unbuffered channel, so we will
-		// block here which is why this is a goroutine
+			log.Printf("Unpause() Semaphore goroutine created.\n")
+			// this is an unbuffered channel, so we will
+			// block here which is why this is a goroutine
 
-		// sending a 1 asks BlockUntilReady() to move forward
-		b.sem <- 1
-		// when we get here that means a BlockUntilReady()
-		// method consumed the signal, meaning we unblocked them
-		// which is good because they're allowed to start sending
-		// again
-		defer func() {
-			log.Printf("Unpause() Semaphore just got consumed by the BlockUntilReady()\n")
+			// sending a 1 asks BlockUntilReady() to move forward
+			b.sem <- 1
+			// when we get here that means a BlockUntilReady()
+			// method consumed the signal, meaning we unblocked them
+			// which is good because they're allowed to start sending
+			// again
+			defer func() {
+				log.Printf("Unpause() Semaphore just got consumed by the BlockUntilReady()\n")
+			}()
 		}()
-	}()
+	*/
 	log.Println("Unpaused buffer inside BlockUntilReady() call")
 }
 
@@ -521,7 +552,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) boo
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
 	if match, _ := regexp.MatchString("[!]", cmd); match {
-		log.Printf("Found cmd that should pause buffer. cmd:%v\n", cmd)
+		//log.Printf("Found cmd that should pause buffer. cmd:%v\n", cmd)
 		return true
 	}
 	return false
@@ -532,7 +563,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) b
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
 	if match, _ := regexp.MatchString("[~%]", cmd); match {
-		log.Printf("Found cmd that should unpause buffer. cmd:%v\n", cmd)
+		//log.Printf("Found cmd that should unpause buffer. cmd:%v\n", cmd)
 		return true
 	}
 	return false
@@ -543,7 +574,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
 	if match, _ := regexp.MatchString("[%]", cmd); match {
-		log.Printf("Found cmd that should wipe out and reset buffer. cmd:%v\n", cmd)
+		//log.Printf("Found cmd that should wipe out and reset buffer. cmd:%v\n", cmd)
 
 		// Since we're tweaking b.Paused lock all threads
 		//b.lock.Lock()
@@ -564,7 +595,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsReturnNoResponse(cmd string) bool
 	//cmd = b.reComment2.ReplaceAllString(cmd, "")
 	log.Printf("Checking cmd:%v for no response?", cmd)
 	if match := b.reNoResponse.MatchString(cmd); match {
-		log.Printf("Found cmd that does not get a response from TinyG. cmd:%v\n", cmd)
+		//log.Printf("Found cmd that does not get a response from TinyG. cmd:%v\n", cmd)
 		return true
 	}
 	return false
@@ -592,7 +623,7 @@ func (b *BufferflowTinyg) ReleaseLock() {
 	log.Println("Lock being released in TinyG buffer")
 
 	b.q.Delete()
-
+	b.SetPaused(false, 2)
 	/*
 		// Since we're tweaking b.Paused lock all threads
 		b.lock.Lock()
@@ -605,25 +636,25 @@ func (b *BufferflowTinyg) ReleaseLock() {
 
 		b.lock.Unlock()
 	*/
+	/*
+		log.Println("ReleaseLock(), so we will send signal of 2 to b.sem to unpause the BlockUntilReady() thread")
+		go func() {
 
-	log.Println("ReleaseLock(), so we will send signal of 2 to b.sem to unpause the BlockUntilReady() thread")
-	go func() {
+			log.Printf("ReleaseLock() Semaphore goroutine created.\n")
+			// this is an unbuffered channel, so we will
+			// block here which is why this is a goroutine
 
-		log.Printf("ReleaseLock() Semaphore goroutine created.\n")
-		// this is an unbuffered channel, so we will
-		// block here which is why this is a goroutine
-
-		// sending a 2 asks BlockUntilReady() to cancel the send
-		b.sem <- 2
-		// when we get here that means a BlockUntilReady()
-		// method consumed the signal, meaning we unblocked them
-		// which is good because they're allowed to start sending
-		// again
-		defer func() {
-			log.Printf("ReleaseLock() Semaphore just got consumed by the BlockUntilReady()\n")
+			// sending a 2 asks BlockUntilReady() to cancel the send
+			b.sem <- 2
+			// when we get here that means a BlockUntilReady()
+			// method consumed the signal, meaning we unblocked them
+			// which is good because they're allowed to start sending
+			// again
+			defer func() {
+				log.Printf("ReleaseLock() Semaphore just got consumed by the BlockUntilReady()\n")
+			}()
 		}()
-	}()
-
+	*/
 }
 
 func (b *BufferflowTinyg) IsBufferGloballySendingBackIncomingData() bool {
@@ -652,8 +683,32 @@ func (b *BufferflowTinyg) GetPaused() bool {
 
 //	Sets the paused state of this buffer
 //	go-routine safe.
-func (b *BufferflowTinyg) SetPaused(isPaused bool) {
+func (b *BufferflowTinyg) SetPaused(isPaused bool, semRelease int) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	b.Paused = isPaused
+
+	// only release semaphore if we are being told to unpause
+	if b.Paused == false {
+		// the BlockUntilReady thread should be sitting waiting
+		// so when we send this should trigger it
+		b.sem <- semRelease
+
+		// since the first consuming of the semRelease will occur
+		// by BlockUntilReady since it's sitting waiting then
+		// we're good to go ahead and release the rest here
+		// so our queue doesn't fill up
+		// that's the theory anyway
+		//b.ClearOutSemaphore()
+	}
+	//go func() {
+	//log.Printf("StartSending Semaphore goroutine created for gcodeline:%v\n", gcodeline)
+	//b.sem <- semRelease
+
+	/*
+		defer func() {
+			//log.Printf("StartSending Semaphore just got consumed by the BlockUntilReady() thread for the gcodeline:%v\n", gcodeline)
+		}()
+	*/
+	//}()
 }

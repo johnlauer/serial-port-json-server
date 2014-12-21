@@ -195,7 +195,7 @@ func writeJson(wrj writeRequestJson) {
 	for _, qrd := range qReportDataArr {
 
 		if qrd.Buf == "Buf" {
-			log.Println("Json sending to wr.p.sendBuffered")
+			//log.Println("Json sending to wr.p.sendBuffered")
 			wrj.p.sendBuffered <- Cmd{qrd.D, qrd.Id, false, false}
 		} else {
 			log.Println("Json sending to wr.p.sendNoBuf")

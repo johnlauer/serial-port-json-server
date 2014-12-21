@@ -166,7 +166,7 @@ func (p *serport) writerBuffered() {
 	// sees something come in
 	for data := range p.sendBuffered {
 
-		log.Printf("Got p.sendBuffered. data:%v, id:%v\n", string(data.data), string(data.id))
+		//log.Printf("Got p.sendBuffered. data:%v, id:%v\n", string(data.data), string(data.id))
 
 		// we want to block here if we are being asked
 		// to pause.
@@ -178,7 +178,7 @@ func (p *serport) writerBuffered() {
 			p.itemsInBuffer--
 		} else {
 			// send to the non-buffered serial port writer
-			log.Println("About to send to p.sendNoBuf channel")
+			//log.Println("About to send to p.sendNoBuf channel")
 			data.willHandleCompleteResponse = willHandleCompleteResponse
 			p.sendNoBuf <- data
 		}
@@ -195,7 +195,7 @@ func (p *serport) writerNoBuf() {
 	// sees something come in
 	for data := range p.sendNoBuf {
 
-		log.Printf("Got p.sendNoBuf. data:%v, id:%v\n", string(data.data), string(data.id))
+		//log.Printf("Got p.sendNoBuf. data:%v, id:%v\n", string(data.data), string(data.id))
 
 		// if we get here, we were able to write successfully
 		// to the serial port because it blocks until it can write
@@ -310,7 +310,7 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
-	}else {
+	} else {
 		bw := &BufferflowDefault{}
 		bw.Init()
 		bw.Port = portname
@@ -330,7 +330,7 @@ func spHandlerClose(p *serport) {
 	p.isClosing = true
 	//close the port
 	//elicit response from hardware to close out p.reader()
-	_ , _ = p.portIo.Write([]byte("?"))
+	_, _ = p.portIo.Write([]byte("?"))
 
 	p.bufferwatcher.Close()
 	p.portIo.Close()

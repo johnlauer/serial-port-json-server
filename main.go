@@ -13,6 +13,7 @@ import (
 	//"os"
 	"errors"
 	//"fmt"
+	//"net/http/pprof"
 	"text/template"
 )
 
@@ -61,13 +62,13 @@ func main() {
 	log.Print("Started server and websocket on " + ip + ":" + f.Value.String())
 	//homeTempl = template.Must(template.ParseFiles(filepath.Join(*assets, "home.html")))
 
+	log.Println("The Serial Port JSON Server is now running.")
+	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
+
 	if !*verbose {
 		log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
 		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
 	}
-
-	log.Println("The Serial Port JSON Server is now running.")
-	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
 
 	// launch the hub routine which is the singleton for the websocket server
 	go h.run()
