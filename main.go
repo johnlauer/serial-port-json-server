@@ -15,6 +15,7 @@ import (
 	//"fmt"
 	//"net/http/pprof"
 	"text/template"
+	"time"
 )
 
 var (
@@ -25,6 +26,7 @@ var (
 	//verbose      = flag.Bool("v", true, "show debug logging")
 	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
+	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
 )
 
 type NullWriter int
@@ -44,10 +46,21 @@ func homeHandler(c http.ResponseWriter, req *http.Request) {
 	homeTemplate.Execute(c, req.Host)
 }
 
+func launchSelfLater() {
+	log.Println("Going to launch myself 5 seconds later.")
+	time.Sleep(5 * 1000 * time.Millisecond)
+	log.Println("Done waiting 5 secs. Now launching...")
+}
+
 func main() {
 
 	// setup logging
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
+	// see if we are supposed to wait 5 seconds
+	if *isLaunchSelf {
+		launchSelfLater()
+	}
 
 	//getList()
 	flag.Parse()
