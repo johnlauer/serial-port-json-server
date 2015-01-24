@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -24,11 +26,15 @@ type hub struct {
 }
 
 var h = hub{
-	broadcast:    make(chan []byte),
-	broadcastSys: make(chan []byte),
-	register:     make(chan *connection),
-	unregister:   make(chan *connection),
-	connections:  make(map[*connection]bool),
+	// buffered. go with 1000 cuz should never surpass that
+	broadcast:    make(chan []byte, 1000),
+	broadcastSys: make(chan []byte, 1000),
+	// non-buffered
+	//broadcast:    make(chan []byte),
+	//broadcastSys: make(chan []byte),
+	register:    make(chan *connection),
+	unregister:  make(chan *connection),
+	connections: make(map[*connection]bool),
 }
 
 func (h *hub) run() {
@@ -38,7 +44,7 @@ func (h *hub) run() {
 			h.connections[c] = true
 			// send supported commands
 			c.send <- []byte("{\"Version\" : \"" + version + "\"} ")
-			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"close [portName]\", \"bufferalgorithms\", \"baudrates\"]} ")
+			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"close [portName]\", \"bufferalgorithms\", \"baudrates\", \"restart\", \"exit\"]} ")
 		case c := <-h.unregister:
 			delete(h.connections, c)
 			// put close in func cuz it was creating panics and want
@@ -161,9 +167,42 @@ func checkCmd(m []byte) {
 		go spBufferAlgorithms()
 	} else if strings.HasPrefix(sl, "baudrate") {
 		go spBaudRates()
+	} else if strings.HasPrefix(sl, "restart") {
+		restart()
+	} else if strings.HasPrefix(sl, "exit") {
+		exit()
 	} else {
 		go spErr("Could not understand command.")
 	}
 
 	//log.Print("Done with checkCmd")
+}
+
+func exit() {
+	log.Println("Starting new spjs process")
+	h.broadcastSys <- []byte("{\"Exiting\" : true}")
+	log.Fatal("Exited current spjs cuz asked to")
+
+}
+
+func restart() {
+	// relaunch ourself and exit
+	// the relaunch works because we pass a cmdline in
+	// that has serial-port-json-server only initialize 5 seconds later
+	// which gives us time to exit and unbind from serial ports and TCP/IP
+	// sockets like :8989
+	log.Println("Starting new spjs process")
+	h.broadcastSys <- []byte("{\"Restarting\" : true}")
+	cmd := exec.Command("serial-port-json-server", "ls")
+	err := cmd.Start()
+	if err != nil {
+		log.Printf("Got err restarting spjs: %v\n", err)
+		h.broadcastSys <- []byte("{\"Error\" : \"" + fmt.Sprintf("%v", err) + "\"}")
+	} else {
+		h.broadcastSys <- []byte("{\"Restarted\" : true}")
+	}
+	log.Fatal("Exited current spjs for restart")
+	//log.Printf("Waiting for command to finish...")
+	//err = cmd.Wait()
+	//log.Printf("Command finished with error: %v", err)
 }
