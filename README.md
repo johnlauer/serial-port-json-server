@@ -58,9 +58,23 @@ Filter the serial port list so it has less irrelevant ports in the list:
 Here's a screenshot of a successful run on Windows x64. Make sure you allow the firewall to give access to Serial Port JSON Server or you'll wonder why it's not working.
 <img src="http://chilipeppr.com/img/screenshots/serialportjsonserver_running.png">
 
-
+Binaries for Download
+---------
+Version 1.75
+Build date: Dec 20, 2014
+<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_windows_386.zip">Windows x32</a>
+<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_windows_amd64.zip">Windows x64</a>
+<a class="list-group-item" target="_blank" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server-osx64.zip">Mac OS X x64 (Thanks to Jarret Luft for build)</a>
+<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_386.tar.gz">Linux x32</a>
+<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_amd64.tar.gz">Linux x64</a>
+<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi (Linux ARM)</a>
+<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_arm.tar.gz">Beagle Bone Black (Linux ARM)</a>
+<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
+                                    
 How to Build
 ---------
+You do not need to build this. Binaries are available above. However, if you still want to build...
+
 Video tutorial of building SPJS on a Mac: https://www.youtube.com/watch?v=4Hou06bOuHc
 
 1. Install Go (http://golang.org/doc/install)
@@ -115,7 +129,7 @@ FAQ
 Revisions
 -------
 Changes in 1.76
-- Fixed stalled jobs whereby the serial buffer from the serial device to Serial Port JSON Server could overflow because SPJS was handling blocking websocket send operations. The sending back of data to the client is now de-coupled from the incoming serial stream via a buffered golang channel. Prior to this change it was an unbuffered channel, so it was a different thread, but it could block on write across the boundary.
+- Somewhat fixed stalled jobs (they're not perfect yet, but you can simply hit the ~ in ChiliPeppr to resume the job if it stalls) whereby the serial buffer from the serial device to Serial Port JSON Server could overflow because SPJS was handling blocking websocket send operations. The sending back of data to the client is now de-coupled from the incoming serial stream via a buffered golang channel. Prior to this change it was an unbuffered channel, so it was a different thread, but it could block on write across the boundary.
 - Added restart and exit commands
 - Added serial port list readout on startup
 - Added ability to filter list based on regular expression by adding -regexp myfilter to the command line
