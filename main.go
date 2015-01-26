@@ -1,4 +1,4 @@
-// Version 1.7
+// Version 1.76
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -12,15 +12,15 @@ import (
 	"net"
 	//"os"
 	"errors"
-	//"fmt"
+	"fmt"
 	//"net/http/pprof"
 	"text/template"
 	"time"
 )
 
 var (
-	version      = "1.75"
-	versionFloat = float32(1.75)
+	version      = "1.76"
+	versionFloat = float32(1.76)
 	addr         = flag.String("addr", ":8989", "http service address")
 	assets       = flag.String("assets", defaultAssetPath(), "path to assets")
 	//verbose      = flag.Bool("v", true, "show debug logging")
@@ -72,7 +72,7 @@ func main() {
 		log.Println(err)
 	}
 
-	log.Print("Started server and websocket on " + ip + "" + f.Value.String())
+	log.Print("Starting server and websocket on " + ip + "" + f.Value.String())
 	//homeTempl = template.Must(template.ParseFiles(filepath.Join(*assets, "home.html")))
 
 	log.Println("The Serial Port JSON Server is now running.")
@@ -93,6 +93,7 @@ func main() {
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/ws", wsHandler)
 	if err := http.ListenAndServe(*addr, nil); err != nil {
+		fmt.Printf("Error trying to bind to port: %v, so exiting...", err)
 		log.Fatal("Error ListenAndServe:", err)
 	}
 

@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bitbucket.org/kardianos/osext"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -193,7 +198,32 @@ func restart() {
 	// sockets like :8989
 	log.Println("Starting new spjs process")
 	h.broadcastSys <- []byte("{\"Restarting\" : true}")
-	cmd := exec.Command("serial-port-json-server", "ls")
+
+	// figure out current path of executable so we know how to restart
+	// this process
+	/*
+		dir, err2 := filepath.Abs(filepath.Dir(os.Args[0]))
+		if err2 != nil {
+			//log.Fatal(err2)
+			fmt.Printf("Error getting executable file path. err: %v\n", err2)
+		}
+		fmt.Printf("The path to this exe is: %v\n", dir)
+
+		// alternate approach
+		_, filename, _, _ := runtime.Caller(1)
+		f, _ := os.Open(path.Join(path.Dir(filename), "serial-port-json-server"))
+		fmt.Println(f)
+	*/
+
+	// using osext
+	exePath, err3 := osext.Executable()
+	if err3 != nil {
+		fmt.Printf("Error getting exe path using osext lib. err: %v\n", err3)
+	}
+	fmt.Printf("exePath using osext: %v\n", exePath)
+
+	cmd := exec.Command(exePath, "ls")
+	//cmd := exec.Command("./serial-port-json-server", "ls")
 	err := cmd.Start()
 	if err != nil {
 		log.Printf("Got err restarting spjs: %v\n", err)
