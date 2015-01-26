@@ -61,6 +61,7 @@ func launchSelfLater() {
 
 func main() {
 
+	flag.Parse()
 	// setup logging
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
@@ -70,7 +71,6 @@ func main() {
 	}
 
 	//getList()
-	flag.Parse()
 	f := flag.Lookup("addr")
 	log.Println("Version:" + version)
 
