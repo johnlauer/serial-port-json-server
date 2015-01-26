@@ -222,7 +222,7 @@ func restart() {
 	}
 	fmt.Printf("exePath using osext: %v\n", exePath)
 
-	cmd := exec.Command(exePath, "ls")
+	cmd := exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter)
 	//cmd := exec.Command("./serial-port-json-server", "ls")
 	err := cmd.Start()
 	if err != nil {
