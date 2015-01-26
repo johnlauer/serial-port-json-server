@@ -390,7 +390,7 @@ func writeToChannels(cmds []string, idArr []string, bufTypeArr []string) {
 func spList() {
 
 	// call our os specific implementation of getting the serial list
-	list, _ := getList()
+	list, _ := GetList()
 
 	// do a quick loop to see if any of our open ports
 	// did not end up in the list port list. this can

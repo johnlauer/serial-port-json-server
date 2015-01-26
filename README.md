@@ -49,6 +49,12 @@ Running on alternate port:
 - Windows 
 `serial-port-json-server.exe -addr :8000`
 
+Filter the serial port list so it has less irrelevant ports in the list:
+- Mac/Linux
+`./serial-port-json-server -regex usb|acm`
+- Windows 
+`serial-port-json-server.exe -regex com8|com9|com2[0-5]|tinyg`
+
 Here's a screenshot of a successful run on Windows x64. Make sure you allow the firewall to give access to Serial Port JSON Server or you'll wonder why it's not working.
 <img src="http://chilipeppr.com/img/screenshots/serialportjsonserver_running.png">
 
@@ -109,7 +115,10 @@ FAQ
 Revisions
 -------
 Changes in 1.76
+- Fixed stalled jobs whereby the serial buffer from the serial device to Serial Port JSON Server could overflow because SPJS was handling blocking websocket send operations. The sending back of data to the client is now de-coupled from the incoming serial stream via a buffered golang channel. Prior to this change it was an unbuffered channel, so it was a different thread, but it could block on write across the boundary.
 - Added restart and exit commands
+- Added serial port list readout on startup
+- Added ability to filter list based on regular expression by adding -regexp myfilter to the command line
 
 Changes in 1.75
 - Tweaked the order of operations for pausing/unpausing the buffer in Grbl and TinyG to account for rare cases where a deadlock could occur. This should guarantee no dead-locking.

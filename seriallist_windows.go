@@ -61,7 +61,7 @@ func getListSynchronously() {
 
 func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 
-	log.Println("Doing getListViaWmiPnpEntity()")
+	//log.Println("Doing getListViaWmiPnpEntity()")
 
 	// this method panics a lot and i'm not sure why, just catch
 	// the panic and return empty list
@@ -96,7 +96,7 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 	pname := "SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0 and Name like '%(COM%'"
 	//pname := "SELECT * FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0"
 	resultRaw, err2 := oleutil.CallMethod(service, "ExecQuery", pname)
-	log.Println("Got result from oleutil.CallMethod")
+	//log.Println("Got result from oleutil.CallMethod")
 	if err2 != nil {
 		// we got back an error or empty list
 		log.Printf("Got an error back from oleutil.CallMethod. err:%v", err2)
@@ -119,7 +119,7 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 
 		asString, _ := oleutil.GetProperty(item, "Name")
 
-		log.Println(asString.ToString())
+		//log.Println(asString.ToString())
 
 		// get the com port
 		//if false {
@@ -131,10 +131,13 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 		//}
 	}
 
-	for index, element := range list {
-		log.Println("index ", index, " element ", element.Name+
-			" friendly ", element.FriendlyName)
-	}
+	/*
+		for index, element := range list {
+			log.Println("index ", index, " element ", element.Name+
+				" friendly ", element.FriendlyName)
+		}
+	*/
+
 	return list, err
 }
 
