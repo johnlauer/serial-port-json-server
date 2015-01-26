@@ -9,10 +9,10 @@ import (
 	"log"
 	"net/http"
 	//"path/filepath"
-	"net"
-	//"os"
 	"errors"
 	"fmt"
+	"net"
+	//"os"
 	//"net/http/pprof"
 	"text/template"
 	"time"
@@ -27,6 +27,13 @@ var (
 	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
+
+	// regular expression to sort the serial port list
+	// typically this wouldn't be provided, but if the user wants to clean
+	// up their list with a regexp so it's cleaner inside their end-user interface
+	// such as ChiliPeppr, this can make the massive list that Linux gives back
+	// to you be a bit more manageable
+	regExpFilter = flag.String("regex", "", "Regular expression to filter serial port list")
 )
 
 type NullWriter int
@@ -77,6 +84,26 @@ func main() {
 
 	log.Println("The Serial Port JSON Server is now running.")
 	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
+
+	// see if they provided a regex filter
+	if len(*regExpFilter) > 0 {
+		log.Printf("You specified a serial port regular expression filter: %v\n", *regExpFilter)
+	}
+
+	// list serial ports
+	portList, _ := GetList()
+	/*if errSys != nil {
+		log.Printf("Got system error trying to retrieve serial port list. Err:%v\n", errSys)
+		log.Fatal("Exiting")
+	}*/
+	log.Println("Your serial ports:")
+	if len(portList) == 0 {
+		log.Println("\tThere are no serial ports to list.")
+	}
+	for _, element := range portList {
+		log.Printf("\t%v\n", element)
+
+	}
 
 	if !*verbose {
 		log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
