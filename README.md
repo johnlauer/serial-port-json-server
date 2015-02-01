@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.76
+Version 1.77
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
@@ -128,6 +128,9 @@ FAQ
 
 Revisions
 -------
+Changes in 1.77
+- Completely fixed stalled jobs. This was due to garbage collection doing a "stop the world" so the fix was to force garbage collection on key events.
+
 Changes in 1.76
 - Somewhat fixed stalled jobs (they're not perfect yet, but you can simply hit the ~ in ChiliPeppr to resume the job if it stalls) whereby the serial buffer from the serial device to Serial Port JSON Server could overflow because SPJS was handling blocking websocket send operations. The sending back of data to the client is now de-coupled from the incoming serial stream via a buffered golang channel. Prior to this change it was an unbuffered channel, so it was a different thread, but it could block on write across the boundary.
 - Added restart and exit commands

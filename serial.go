@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 )
@@ -202,6 +203,9 @@ func writeJson(wrj writeRequestJson) {
 			wrj.p.sendNoBuf <- Cmd{qrd.D, qrd.Id, true, false}
 		}
 	}
+
+	// garbage collect
+	debug.FreeOSMemory()
 }
 
 func write(wr writeRequest, id string) {
@@ -231,6 +235,9 @@ func write(wr writeRequest, id string) {
 			wr.p.sendNoBuf <- Cmd{cmdToSendToChannel, cmdId, true, false}
 		}
 	}
+
+	// garbage collect
+	debug.FreeOSMemory()
 
 }
 
