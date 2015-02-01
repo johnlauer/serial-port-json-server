@@ -9,6 +9,10 @@ import (
 	//"path"
 	//"path/filepath"
 	//"runtime"
+	//"debug"
+	"encoding/json"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 )
@@ -176,11 +180,33 @@ func checkCmd(m []byte) {
 		restart()
 	} else if strings.HasPrefix(sl, "exit") {
 		exit()
+	} else if strings.HasPrefix(sl, "memstats") {
+		memoryStats()
+	} else if strings.HasPrefix(sl, "gc") {
+		garbageCollection()
 	} else {
 		go spErr("Could not understand command.")
 	}
 
 	//log.Print("Done with checkCmd")
+}
+
+func memoryStats() {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	json, _ := json.Marshal(memStats)
+	log.Printf("memStats:%v\n", string(json))
+	h.broadcastSys <- json
+}
+
+func garbageCollection() {
+	log.Printf("Starting garbageCollection()\n")
+	h.broadcastSys <- []byte("Starting garbageCollection")
+	debug.SetGCPercent(100)
+	debug.FreeOSMemory()
+	debug.SetGCPercent(-1)
+	log.Printf("Done with garbageCollection()\n")
+	h.broadcastSys <- []byte("Done with garbageCollection")
 }
 
 func exit() {

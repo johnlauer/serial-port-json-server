@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	//"time"
+	"runtime/debug"
 )
 
 type BufferflowTinyg struct {
@@ -384,6 +385,13 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 	// now wipe the LatestData to only have the last line that we did not analyze
 	// because we didn't know/think that was a full command yet
 	b.LatestData = arrLines[len(arrLines)-1]
+
+	// we are losing incoming serial data because of garbageCollection()
+	// doing a "stop the world" and all this data queues up back on the
+	// tinyg and we miss stuff coming in, which gets our serial counter off
+	// and then causes stalling, so we're going to attempt to force garbageCollection
+	// each time we get data so that we don't have pauses as long as we were having
+	debug.FreeOSMemory()
 
 	//time.Sleep(3000 * time.Millisecond)
 	//log.Printf("OnIncomingData() end.\n")
