@@ -1,4 +1,4 @@
-// Version 1.76
+// Version 1.77
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -14,17 +14,19 @@ import (
 	"net"
 	//"os"
 	//"net/http/pprof"
+	//"runtime"
+	//"runtime/debug"
 	"text/template"
 	"time"
 )
 
 var (
-	version      = "1.76"
-	versionFloat = float32(1.76)
+	version      = "1.77"
+	versionFloat = float32(1.77)
 	addr         = flag.String("addr", ":8989", "http service address")
 	assets       = flag.String("assets", defaultAssetPath(), "path to assets")
-	//verbose      = flag.Bool("v", true, "show debug logging")
-	verbose = flag.Bool("v", false, "show debug logging")
+	verbose      = flag.Bool("v", true, "show debug logging")
+	//verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
 
@@ -55,11 +57,15 @@ func homeHandler(c http.ResponseWriter, req *http.Request) {
 
 func launchSelfLater() {
 	log.Println("Going to launch myself 5 seconds later.")
-	time.Sleep(5 * 1000 * time.Millisecond)
+	time.Sleep(2 * 1000 * time.Millisecond)
 	log.Println("Done waiting 5 secs. Now launching...")
 }
 
 func main() {
+
+	// turn off garbage collection
+	// this is dangerous, as u could overflow memory
+	//debug.SetGCPercent(-1)
 
 	flag.Parse()
 	// setup logging
