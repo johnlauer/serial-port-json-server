@@ -44,7 +44,7 @@ type CmdComplete struct {
 	Cmd     string
 	Id      string
 	P       string
-	BufSize int
+	BufSize int    `json:"-"`
 	D       string `json:"-"`
 }
 
@@ -53,7 +53,7 @@ type qwReport struct {
 	QCnt int
 	Id   string
 	D    string `json:"-"`
-	Buf  string
+	Buf  string `json:"-"`
 	P    string
 }
 
@@ -204,6 +204,8 @@ func (p *serport) writerNoBuf() {
 		p.itemsInBuffer--
 		log.Printf("itemsInBuffer:%v\n", p.itemsInBuffer)
 		//h.broadcastSys <- []byte("{\"Cmd\":\"Write\",\"QCnt\":" + strconv.Itoa(p.itemsInBuffer) + ",\"Byte\":" + strconv.Itoa(n2) + ",\"Port\":\"" + p.portConf.Name + "\"}")
+
+		// For reducing load on websocket, stop transmitting write data
 		buf := "Buf"
 		if data.skippedBuffer {
 			buf = "NoBuf"

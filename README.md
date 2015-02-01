@@ -111,6 +111,7 @@ bufferalgorithms | | List the available bufferAlgorithms on the server. You will
 baudrates | | List common baudrates such as 2400, 9600, 115200
 restart | | Restart the serial port JSON server
 exit | | Exit the serial port JSON server
+memstats | | Send back data on the memory usage and garbage collection performance
 
 FAQ
 -------
