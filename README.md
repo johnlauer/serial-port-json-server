@@ -60,16 +60,16 @@ Here's a screenshot of a successful run on Windows x64. Make sure you allow the 
 
 Binaries for Download
 ---------
-Version 1.75
-Build date: Dec 20, 2014
-- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_windows_386.zip">Windows x32</a>
-- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_windows_amd64.zip">Windows x64</a>
-- <a class="list-group-item" target="_blank" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server-osx64.zip">Mac OS X x64 (Thanks to Jarret Luft for build)</a>
-- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_386.tar.gz">Linux x32</a>
-- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_amd64.tar.gz">Linux x64</a>
-- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi (Linux ARM)</a>
-- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_arm.tar.gz">Beagle Bone Black (Linux ARM)</a>
-- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.75/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
+Version 1.77
+Build date: Feb 1, 2015
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_windows_386.zip">Windows x32</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_windows_amd64.zip">Windows x64</a>
+- <a class="list-group-item" target="_blank" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server-v1.77-osx.zip">Mac OS X x64 (Thanks to Jarret Luft for build)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_386.tar.gz">Linux x32</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_amd64.tar.gz">Linux x64</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi (Linux ARM)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_arm.tar.gz">Beagle Bone Black (Linux ARM)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
                                     
 How to Build
 ---------
