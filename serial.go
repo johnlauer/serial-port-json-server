@@ -50,7 +50,7 @@ type qReport struct {
 	QCnt int
 	Type []string `json:"-"`
 	Ids  []string
-	D    []string `json:"-"`
+	D    []string //`json:"-"`
 	Port string
 }
 
@@ -214,8 +214,8 @@ func write(wr writeRequest, id string) {
 	qr := qReport{
 		Cmd: "Queued",
 		//Type: bufTypeArr,
-		Ids: idArr,
-		//D:    cmds,
+		Ids:  idArr,
+		D:    cmds,
 		QCnt: wr.p.itemsInBuffer,
 		Port: wr.p.portConf.Name,
 	}
