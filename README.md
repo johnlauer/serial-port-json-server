@@ -127,6 +127,67 @@ FAQ
 	- It launches super quick
 	- It is essentially C code without the pain of C code. Go has insanely amazing threading support called Channels. Node.js is single-threaded, so you can't take full advantage of the CPU's threading capabilities. Go lets you do this easily. A serial port server needs several threads. 1) Websocket thread for each connection. 2) Serial port thread for each serial device. Serial Port JSON Server allows you to bind as many serial port devices in parallel as you want. 3) A writer and reader thread for each serial port. 4) A buffering thread for each incoming message from the browser into the websocket 5) A buffering thread for messages back out from the server to the websocket to the browser. To achieve this in Node requires lots of callbacks. You also end up talking natively anyway to the serial port on each specific platform you're on, so you have to deal with the native code glued to Node.
 
+Startup Script for Linux
+-------
+
+Here's a really lightweight /etc/init.d startup script for use on Linux like with a Raspberry Pi, Beable Bone Black, Odroid, Intel Edison, etc.
+
+Create a text file inside /etc/init.d called serial-port-json-server, for example:
+
+`sudo nano /etc/init.d/serial-port-json-server`
+
+Then make sure the file contents contain the following script, but make sure to update the path to your serial-port-json-server binary. This example has the binary in /home/pi but yours may differ.
+<pre>
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          serial-port-json-server
+# Required-Start:    $all
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Manage my cool stuff
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/bin
+
+. /lib/init/vars.sh
+. /lib/lsb/init-functions
+# If you need to source some other scripts, do it here
+
+case "$1" in
+  start)
+    log_begin_msg "Starting Serial Port JSON Server service"
+# do something
+        /home/pi/serial-port-json-server_linux_arm/serial-port-json-server -regex usb &
+    log_end_msg $?
+    exit 0
+    ;;
+  stop)
+    log_begin_msg "Stopping the Serial Port JSON Server"
+
+    # do something to kill the service or cleanup or nothing
+    killall serial-port-json-server
+    log_end_msg $?
+    exit 0
+    ;;
+  *)
+    echo "Usage: /etc/init.d/serial-port-json-server {start|stop}"
+    exit 1
+    ;;
+esac
+</pre>
+
+Then you need to run the following command to setup your /etc/init.d script so it starts on boot up of your computer...
+
+`sudo update-rc.d serial-port-json-server defaults`
+
+And of course to manually start/stop the service:
+
+<pre>
+sudo service serial-port-json-server stop
+sudo service serial-port-json-server start
+</pre>
+
 Revisions
 -------
 Changes in 1.77
