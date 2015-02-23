@@ -1,4 +1,4 @@
-// Version 1.78
+// Version 1.79
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -15,14 +15,14 @@ import (
 	//"os"
 	//"net/http/pprof"
 	//"runtime"
-	//"runtime/debug"
+	"runtime/debug"
 	"text/template"
 	"time"
 )
 
 var (
-	version      = "1.78"
-	versionFloat = float32(1.78)
+	version      = "1.79"
+	versionFloat = float32(1.79)
 	addr         = flag.String("addr", ":8989", "http service address")
 	assets       = flag.String("assets", defaultAssetPath(), "path to assets")
 	//verbose      = flag.Bool("v", true, "show debug logging")
@@ -36,6 +36,9 @@ var (
 	// such as ChiliPeppr, this can make the massive list that Linux gives back
 	// to you be a bit more manageable
 	regExpFilter = flag.String("regex", "", "Regular expression to filter serial port list")
+
+	// allow garbageCollection()
+	isGC = flag.Bool("gc", false, "Is garbage collection on? Off by default.")
 )
 
 type NullWriter int
@@ -63,10 +66,6 @@ func launchSelfLater() {
 
 func main() {
 
-	// turn off garbage collection
-	// this is dangerous, as u could overflow memory
-	//debug.SetGCPercent(-1)
-
 	flag.Parse()
 	// setup logging
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
@@ -79,6 +78,15 @@ func main() {
 	//getList()
 	f := flag.Lookup("addr")
 	log.Println("Version:" + version)
+
+	// turn off garbage collection
+	// this is dangerous, as u could overflow memory
+	if *isGC {
+		log.Println("Garbage collection is on for real-time collecting. Higher CPU, but lower memory footprint.")
+	} else {
+		log.Println("Garbage collection is off. Memory use will grow unbounded. Lower CPU, but progressive memory footprint.")
+		debug.SetGCPercent(-1)
+	}
 
 	ip, err := externalIP()
 	if err != nil {
