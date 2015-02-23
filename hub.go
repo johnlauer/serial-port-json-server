@@ -250,7 +250,13 @@ func restart() {
 	}
 	fmt.Printf("exePath using osext: %v\n", exePath)
 
-	cmd := exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter)
+	// figure out garbageCollection flag
+	isGcFlag := "false"
+	if *isGC {
+		isGcFlag = "true"
+	}
+
+	cmd := exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter, "-gc", isGcFlag)
 	//cmd := exec.Command("./serial-port-json-server", "ls")
 	err := cmd.Start()
 	if err != nil {
