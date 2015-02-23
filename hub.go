@@ -201,12 +201,14 @@ func memoryStats() {
 
 func garbageCollection() {
 	log.Printf("Starting garbageCollection()\n")
-	h.broadcastSys <- []byte("Starting garbageCollection")
+	h.broadcastSys <- []byte("{\"gc\":\"starting\"}")
+	memoryStats()
 	debug.SetGCPercent(100)
 	debug.FreeOSMemory()
 	debug.SetGCPercent(-1)
 	log.Printf("Done with garbageCollection()\n")
-	h.broadcastSys <- []byte("Done with garbageCollection")
+	h.broadcastSys <- []byte("{\"gc\":\"done\"}")
+	memoryStats()
 }
 
 func exit() {
