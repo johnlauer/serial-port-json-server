@@ -251,12 +251,17 @@ func restart() {
 	fmt.Printf("exePath using osext: %v\n", exePath)
 
 	// figure out garbageCollection flag
-	isGcFlag := "false"
+	//isGcFlag := "false"
+
+	var cmd *exec.Cmd
 	if *isGC {
-		isGcFlag = "true"
+		//isGcFlag = "true"
+		cmd = exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter, "-gc")
+	} else {
+		cmd = exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter)
+
 	}
 
-	cmd := exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter, "-gc", isGcFlag)
 	//cmd := exec.Command("./serial-port-json-server", "ls")
 	err := cmd.Start()
 	if err != nil {
