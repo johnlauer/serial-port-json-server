@@ -176,6 +176,8 @@ func checkCmd(m []byte) {
 		go spBufferAlgorithms()
 	} else if strings.HasPrefix(sl, "baudrate") {
 		go spBaudRates()
+	} else if strings.HasPrefix(sl, "broadcast") {
+		go broadcast(s)
 	} else if strings.HasPrefix(sl, "restart") {
 		restart()
 	} else if strings.HasPrefix(sl, "exit") {
@@ -184,11 +186,24 @@ func checkCmd(m []byte) {
 		memoryStats()
 	} else if strings.HasPrefix(sl, "gc") {
 		garbageCollection()
+	} else if strings.HasPrefix(sl, "bufflowdebug") {
+		bufflowdebug(sl)
 	} else {
 		go spErr("Could not understand command.")
 	}
 
 	//log.Print("Done with checkCmd")
+}
+
+func bufflowdebug(sl string) {
+	log.Println("bufflowdebug start")
+	if strings.HasPrefix(sl, "bufflowdebug on") {
+		*bufFlowDebugType = "on"
+	} else if strings.HasPrefix(sl, "bufflowdebug off") {
+		*bufFlowDebugType = "off"
+	}
+	h.broadcastSys <- []byte("{\"BufFlowDebug\" : \"" + *bufFlowDebugType + "\"}")
+	log.Println("bufflowdebug end")
 }
 
 func memoryStats() {
@@ -254,13 +269,14 @@ func restart() {
 	//isGcFlag := "false"
 
 	var cmd *exec.Cmd
-	if *isGC {
+	/*if *isGC {
 		//isGcFlag = "true"
 		cmd = exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter, "-gc")
 	} else {
 		cmd = exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter)
 
-	}
+	}*/
+	cmd = exec.Command(exePath, "-ls", "-addr", *addr, "-regex", *regExpFilter, "-gc", *gcType)
 
 	//cmd := exec.Command("./serial-port-json-server", "ls")
 	err := cmd.Start()
@@ -274,4 +290,34 @@ func restart() {
 	//log.Printf("Waiting for command to finish...")
 	//err = cmd.Wait()
 	//log.Printf("Command finished with error: %v", err)
+}
+
+type CmdBroadcast struct {
+	Cmd string
+	Msg string
+}
+
+func broadcast(arg string) {
+	// we will get a string of broadcast asdf asdf asdf
+	log.Println("Inside broadcast arg: " + arg)
+	arg = strings.TrimPrefix(arg, " ")
+	//log.Println("arg after trim: " + arg)
+	args := strings.SplitN(arg, " ", 2)
+	if len(args) != 2 {
+		errstr := "Could not parse broadcast command: " + arg
+		log.Println(errstr)
+		spErr(errstr)
+		return
+	}
+	broadcastcmd := strings.Trim(args[1], " ")
+	log.Println("The broadcast cmd is:" + broadcastcmd + "---")
+
+	bcmd := CmdBroadcast{
+		Cmd: "Broadcast",
+		Msg: broadcastcmd,
+	}
+	json, _ := json.Marshal(bcmd)
+	log.Printf("bcmd:%v\n", string(json))
+	h.broadcastSys <- json
+
 }

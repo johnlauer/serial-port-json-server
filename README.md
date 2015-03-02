@@ -55,11 +55,18 @@ Filter the serial port list so it has less irrelevant ports in the list:
 - Windows 
 `serial-port-json-server.exe -regex com8|com9|com2[0-5]|tinyg`
 
+Garbage collect mode:
+- Mac/Linux
+`./serial-port-json-server -gc std`
+- Windows 
+`serial-port-json-server.exe -gc max`
+
 Here's a screenshot of a successful run on Windows x64. Make sure you allow the firewall to give access to Serial Port JSON Server or you'll wonder why it's not working.
 <img src="http://chilipeppr.com/img/screenshots/serialportjsonserver_running.png">
 
 Binaries for Download
 ---------
+
 Version 1.77
 Build date: Feb 1, 2015
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_windows_386.zip">Windows x32</a>
@@ -112,6 +119,24 @@ baudrates | | List common baudrates such as 2400, 9600, 115200
 restart | | Restart the serial port JSON server
 exit | | Exit the serial port JSON server
 memstats | | Send back data on the memory usage and garbage collection performance
+broadcast string | broadcast my data | Send in this command and you will get a message reflected back to all connected endpoints. This is useful for communicating with all connected clients, i.e. in a CNC scenario is a pendant wants to ask the main workspace if there are any settings it should know about. For example send in "broadcast this is my custom cmd" and get this reflected back to all connected sockets {"Cmd":"Broadcast","Msg":"this is my custom cmd\n"}
+
+Garbage collection
+-------
+On slower devices like Raspberry Pi's it is evident that the slowness of the CPU can cause some issues. In particular, on a Tinyg so much data can flow back from the serial device that it can overwhelm the Raspberry Pi such that serial data is lost if the Pi can't process it quick enough. This usually isn't a problem until a garbage collection process is triggered by golang for SPJS. This garbage collection does a "stop the world" technique which on the Raspi is so slow that SPJS may be unresponsive for 5 or even 10 seconds. This is long enough that data starts spilling off the serial port buffer inside the TinyG. On faster hosts like Windows or Mac this doesn't happen. Therefore some additional tricks have been added to SPJS to try to alleviate this problem from rearing it's ugly head. SPJS by default now will start in gc=max mode. This means SPJS will forcible garbage collect non-stop on each receive on the serial port. This essentially doubles or triples SPJS's CPU usage, but it solves the stopping of the world. You can try to use gc=std which is the mode SPJS has been running in since its inception, but some folks did find even on non-Raspi platforms that they may occasionally get stalled jobs. It is recommended to keep gc=max as the default, but you could try your own settings including trying gc=off which means all garbage collection is turned off and thus you'll eventually run out of memory. You can send in a "gc" into SPJS via the websocket to force manual garbage collection in this instance.
+
+Broadcast Command
+-------
+There is a growing need for end-clients of SPJS to be able to chat with eachother. Therefore a new command has been added called "broadcast". It's not a very sophisticated feature because it simply regurgitates out whatever is after the broadcast command back to all connected clients. This simplistic approach means any user can implement any command they would like via the broadcast command and create unique solutions via SPJS.
+
+For example, if a pendant controller for your CNC is connected to SPJS and trying to figure out if the ChiliPeppr main workspace has some stored settings for your pendant, it could send out a command like:
+`broadcast get-settings`
+
+And SPJS would regurgitate the command to all connected sockets like:
+`{"Cmd":"Broadcast","Msg":"get-settings\n"}`
+
+And if the ChiliPeppr workspace were listening for all incoming {"Cmd":"Broadcast","Msg":...} signals and specifically the "get-settings" command then it could respond with something like:
+`{"Cmd":"Settings","Macro1":"..."}`
 
 FAQ
 -------

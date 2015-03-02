@@ -25,7 +25,7 @@ var (
 	versionFloat = float32(1.79)
 	addr         = flag.String("addr", ":8989", "http service address")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
-	//verbose      = flag.Bool("v", true, "show debug logging")
+	//verbose = flag.Bool("v", true, "show debug logging")
 	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
@@ -38,7 +38,12 @@ var (
 	regExpFilter = flag.String("regex", "", "Regular expression to filter serial port list")
 
 	// allow garbageCollection()
-	isGC = flag.Bool("gc", false, "Is garbage collection on? Off by default.")
+	//isGC = flag.Bool("gc", false, "Is garbage collection on? Off by default.")
+	//isGC = flag.Bool("gc", true, "Is garbage collection on? Off by default.")
+	gcType = flag.String("gc", "max", "Type of garbage collection. std = Normal garbage collection allowing system to decide (this has been known to cause a stop the world in the middle of a CNC job which can cause lost responses from the CNC controller and thus stalled jobs. use max instead to solve.), off = let memory grow unbounded (you have to send in the gc command manually to garbage collect or you will run out of RAM eventually), max = Force garbage collection on each recv or send on a serial port (this minimizes stop the world events and thus lost serial responses, but increases CPU usage)")
+
+	// whether to do buffer flow debugging
+	bufFlowDebugType = flag.String("bufflowdebug", "off", "off = (default) We do not send back any debug JSON, on = We will send back a JSON response with debug info based on the configuration of the buffer flow that the user picked")
 )
 
 type NullWriter int
@@ -81,10 +86,13 @@ func main() {
 
 	// turn off garbage collection
 	// this is dangerous, as u could overflow memory
-	if *isGC {
-		log.Println("Garbage collection is on for real-time collecting. Higher CPU, but lower memory footprint.")
+	//if *isGC {
+	if *gcType == "std" {
+		log.Println("Garbage collection is on using Standard mode, meaning we just let Golang determine when to garbage collect.")
+	} else if *gcType == "max" {
+		log.Println("Garbage collection is on for MAXIMUM real-time collecting on each send/recv from serial port. Higher CPU, but less stopping of the world to garbage collect since it is being done on a constant basis.")
 	} else {
-		log.Println("Garbage collection is off. Memory use will grow unbounded. Lower CPU, but progressive memory footprint.")
+		log.Println("Garbage collection is off. Memory use will grow unbounded. You WILL RUN OUT OF RAM unless you send in the gc command to manually force garbage collection. Lower CPU, but progressive memory footprint.")
 		debug.SetGCPercent(-1)
 	}
 
@@ -183,46 +191,6 @@ func externalIP() (string, error) {
 		}
 	}
 	return "", errors.New("are you connected to the network?")
-}
-
-func whatismyip() {
-	/*
-		ifaces, err := net.Interfaces()
-		// handle err
-		for _, i := range ifaces {
-			addrs, err := i.Addrs()
-			// handle err
-			if err != nil {
-				log.Println("got err")
-			}
-			for _, addr := range addrs {
-				switch v := addr.(type) {
-				case *net.IPAddr:
-					// process IP address
-					//log.Println((*net.IPAddr))
-				}
-
-			}
-		}*/
-
-	/*
-		addrs, _ := net.InterfaceAddrs()
-		if err != nil {
-			os.Stderr.WriteString("Oops: " + err.Error() + "\n")
-			os.Exit(1)
-		}
-
-		log.Println("The IP Address of this server is:")
-		for _, a := range addrs {
-			log.Println("In loop")
-			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-				if ipnet.IP.To4() != nil {
-					//os.Stdout.WriteString(ipnet.IP.String() + "\n")
-					log.Println(ipnet.IP.String())
-				}
-			}
-		}
-	*/
 }
 
 var homeTemplate = template.Must(template.New("home").Parse(homeTemplateHtml))
