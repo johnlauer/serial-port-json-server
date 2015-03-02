@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bitbucket.org/kardianos/osext"
+	"github.com/kardianos/osext"
 	"fmt"
 	"log"
 	//"os"
