@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	//"time"
+	"errors"
+	"fmt"
 	"runtime/debug"
 )
 
@@ -58,6 +60,42 @@ type BufferflowTinyg struct {
 type GcodeCmd struct {
 	Cmd string
 	Id  string
+}
+
+type BufFlowCmd struct {
+	Cmd                          string
+	Gcode                        string
+	Resp                         string
+	Id                           string
+	HowMuchWeThinkWeShouldRemove int
+	HowMuchTinyTellsUsToRemove   int
+	IsMatchOnBufDescreaseCnt     bool
+	//TotalInBufPerSpjs            int
+	//TotalInBufPerTinyG           int
+}
+
+// RawString is a raw encoded JSON object.
+// It implements Marshaler and Unmarshaler and can
+// be used to delay JSON decoding or precompute a JSON encoding.
+type RawString string
+
+// MarshalJSON returns *m as the JSON encoding of m.
+func (m *RawString) MarshalJSON() ([]byte, error) {
+	return []byte(*m), nil
+}
+
+// UnmarshalJSON sets *m to a copy of data.
+func (m *RawString) UnmarshalJSON(data []byte) error {
+	if m == nil {
+		return errors.New("RawString: UnmarshalJSON on nil pointer")
+	}
+	*m += RawString(data)
+	return nil
+}
+
+type RespMsg struct {
+	R RawString `json:"r", sql:"type:json"`
+	F []int     `json:"f"`
 }
 
 func (b *BufferflowTinyg) Init() {
@@ -277,6 +315,7 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 	// so analyze all of them except the last line
 	for _, element := range arrLines[:len(arrLines)-1] {
 		//log.Printf("Working on element:%v, index:%v", element, index)
+		//log.Printf("Working on element:%v, index:%v", element)
 
 		//check for r:{} response indicating a gcode line has been processed
 		if b.reSlotDone.MatchString(element) {
@@ -310,6 +349,42 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 				*/
 
 				log.Printf("Buffer decreased to itemCnt:%v, lenOfBuf:%v\n", b.q.Len(), b.q.LenOfCmds())
+
+				if *bufFlowDebugType == "on" {
+					// let's report on how our buffer is doing
+					// we need to unmarshall this r:{} response
+					var rm RespMsg
+					err2 := json.Unmarshal([]byte(element), &rm)
+
+					if err2 != nil {
+						log.Printf("Problem decoding json on r:{} response. giving up. json:%v, err:%v\n", element, err2)
+						spErr(fmt.Sprintf("Problem decoding json on r:{} response. giving up. json:%v, err:%v", element, err2))
+						//return
+					} else {
+						log.Printf("RespMsg:%v\n", rm)
+
+						bfc := BufFlowCmd{}
+						bfc.Cmd = "BufFlowDebug"
+						bfc.Gcode = doneCmd
+						bfc.Resp = element
+						bfc.Id = id
+						bfc.HowMuchWeThinkWeShouldRemove = len(doneCmd)
+						if len(rm.F) > 2 {
+							bfc.HowMuchTinyTellsUsToRemove = rm.F[2]
+							if rm.F[2] == len(doneCmd) {
+								bfc.IsMatchOnBufDescreaseCnt = true
+							} else {
+								bfc.IsMatchOnBufDescreaseCnt = true
+							}
+						}
+
+						bfcm, err3 := json.Marshal(bfc)
+						if err3 == nil {
+							h.broadcastSys <- bfcm
+						}
+					}
+				}
+
 			} else {
 				log.Printf("We should NEVER get here cuz we should have a command in the queue to dequeue when we get the r:{} response. If you see this debug stmt this is BAD!!!!")
 			}
@@ -391,7 +466,9 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 	// tinyg and we miss stuff coming in, which gets our serial counter off
 	// and then causes stalling, so we're going to attempt to force garbageCollection
 	// each time we get data so that we don't have pauses as long as we were having
-	debug.FreeOSMemory()
+	if *gcType == "max" {
+		debug.FreeOSMemory()
+	}
 
 	//time.Sleep(3000 * time.Millisecond)
 	//log.Printf("OnIncomingData() end.\n")
