@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	//"os"
+	"os"
 	//"net/http/pprof"
 	//"runtime"
 	"runtime/debug"
@@ -40,10 +40,13 @@ var (
 	// allow garbageCollection()
 	//isGC = flag.Bool("gc", false, "Is garbage collection on? Off by default.")
 	//isGC = flag.Bool("gc", true, "Is garbage collection on? Off by default.")
-	gcType = flag.String("gc", "max", "Type of garbage collection. std = Normal garbage collection allowing system to decide (this has been known to cause a stop the world in the middle of a CNC job which can cause lost responses from the CNC controller and thus stalled jobs. use max instead to solve.), off = let memory grow unbounded (you have to send in the gc command manually to garbage collect or you will run out of RAM eventually), max = Force garbage collection on each recv or send on a serial port (this minimizes stop the world events and thus lost serial responses, but increases CPU usage)")
+	gcType = flag.String("gc", "std", "Type of garbage collection. std = Normal garbage collection allowing system to decide (this has been known to cause a stop the world in the middle of a CNC job which can cause lost responses from the CNC controller and thus stalled jobs. use max instead to solve.), off = let memory grow unbounded (you have to send in the gc command manually to garbage collect or you will run out of RAM eventually), max = Force garbage collection on each recv or send on a serial port (this minimizes stop the world events and thus lost serial responses, but increases CPU usage)")
 
 	// whether to do buffer flow debugging
-	bufFlowDebugType = flag.String("bufflowdebug", "off", "off = (default) We do not send back any debug JSON, on = We will send back a JSON response with debug info based on the configuration of the buffer flow that the user picked")
+	bufFlowDebugType = flag.String("bufflowdebug", "on", "off = (default) We do not send back any debug JSON, on = We will send back a JSON response with debug info based on the configuration of the buffer flow that the user picked")
+
+	// hostname. allow user to override, otherwise we look it up
+	hostname = flag.String("hostname", "not-set", "Override the hostname we get from the OS")
 )
 
 type NullWriter int
@@ -83,6 +86,13 @@ func main() {
 	//getList()
 	f := flag.Lookup("addr")
 	log.Println("Version:" + version)
+
+	// hostname
+	hn, _ := os.Hostname()
+	if *hostname == "not-set" {
+		*hostname = hn
+	}
+	log.Println("Hostname:", *hostname)
 
 	// turn off garbage collection
 	// this is dangerous, as u could overflow memory

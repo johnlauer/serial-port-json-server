@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/kardianos/osext"
 	"fmt"
+	"github.com/kardianos/osext"
 	"log"
 	//"os"
 	"os/exec"
@@ -54,6 +54,7 @@ func (h *hub) run() {
 			// send supported commands
 			c.send <- []byte("{\"Version\" : \"" + version + "\"} ")
 			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"close [portName]\", \"bufferalgorithms\", \"baudrates\", \"restart\", \"exit\"]} ")
+			c.send <- []byte("{\"Hostname\" : \"" + *hostname + "\"} ")
 		case c := <-h.unregister:
 			delete(h.connections, c)
 			// put close in func cuz it was creating panics and want
@@ -188,6 +189,10 @@ func checkCmd(m []byte) {
 		garbageCollection()
 	} else if strings.HasPrefix(sl, "bufflowdebug") {
 		bufflowdebug(sl)
+	} else if strings.HasPrefix(sl, "hostname") {
+		getHostname()
+	} else if strings.HasPrefix(sl, "version") {
+		getVersion()
 	} else {
 		go spErr("Could not understand command.")
 	}
@@ -212,6 +217,14 @@ func memoryStats() {
 	json, _ := json.Marshal(memStats)
 	log.Printf("memStats:%v\n", string(json))
 	h.broadcastSys <- json
+}
+
+func getHostname() {
+	h.broadcastSys <- []byte("{\"Hostname\" : \"" + *hostname + "\"}")
+}
+
+func getVersion() {
+	h.broadcastSys <- []byte("{\"Version\" : \"" + version + "\"}")
 }
 
 func garbageCollection() {
