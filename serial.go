@@ -205,7 +205,9 @@ func writeJson(wrj writeRequestJson) {
 	}
 
 	// garbage collect
-	debug.FreeOSMemory()
+	if *gcType == "max" {
+		debug.FreeOSMemory()
+	}
 }
 
 func write(wr writeRequest, id string) {

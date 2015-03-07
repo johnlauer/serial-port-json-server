@@ -287,12 +287,13 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 	}
 	log.Print("Opened port successfully")
 	//p := &serport{send: make(chan []byte, 256), portConf: conf, portIo: sp}
-	p := &serport{sendBuffered: make(chan Cmd, 256*100), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype}
+	// we can go up to 256,000 lines of gcode in the buffer
+	p := &serport{sendBuffered: make(chan Cmd, 256*1000), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype}
 
 	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
 	if buftype == "tinyg" {
 
-		bw := &BufferflowTinyg{Name: "tinyg"}
+		bw := &BufferflowTinyg{Name: "tinyg", parent_serport: p}
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw

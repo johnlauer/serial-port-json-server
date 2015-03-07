@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"time"
 )
 
 type BufferflowTinyg struct {
@@ -24,6 +25,10 @@ type BufferflowTinyg struct {
 	LatestData string   // this holds the latest data across multiple serial reads so we can analyze it for qr responses
 	//BypassMode      bool          // this means don't actually watch for qr responses until we know tinyg is in qr response mode
 	//wg           sync.WaitGroup
+
+	quit           chan int
+	parent_serport *serport
+
 	re                    *regexp.Regexp
 	reNewLine             *regexp.Regexp
 	reQrOff               *regexp.Regexp
@@ -34,6 +39,8 @@ type BufferflowTinyg struct {
 	rePutBackInJsonMode   *regexp.Regexp
 	reJsonVerbositySetTo0 *regexp.Regexp
 	reCrLfSetTo1          *regexp.Regexp
+	reRxResponse          *regexp.Regexp
+	reFlowChar            *regexp.Regexp
 
 	// slot counter approach
 	reSlotDone *regexp.Regexp // the r:null cmd to look for back from tinyg indicating line processed
@@ -69,9 +76,21 @@ type BufFlowCmd struct {
 	Id                           string
 	HowMuchWeThinkWeShouldRemove int
 	HowMuchTinyTellsUsToRemove   int
-	IsMatchOnBufDescreaseCnt     bool
+	IsMatchOnBufDecreaseCnt      bool
+	IsErr                        bool
+	Err                          string
 	//TotalInBufPerSpjs            int
 	//TotalInBufPerTinyG           int
+}
+
+type BufFlowRx struct {
+	Cmd                string
+	Resp               string
+	IsMatchOnTotalBuf  bool
+	IsErr              bool
+	Err                string
+	TotalInBufPerSpjs  int
+	TotalInBufPerTinyG int
 }
 
 // RawString is a raw encoded JSON object.
@@ -98,6 +117,15 @@ type RespMsg struct {
 	F []int     `json:"f"`
 }
 
+type RespRxMsg struct {
+	R RxMsg `json:"r"`
+	F []int `json:"f"`
+}
+
+type RxMsg struct {
+	Rx int `json:"rx"`
+}
+
 func (b *BufferflowTinyg) Init() {
 
 	b.Paused = false
@@ -113,7 +141,12 @@ func (b *BufferflowTinyg) Init() {
 	// a line of gcode was processed and thus we can send the next one
 	// {"r":{},"f":[1,0,33,134]}
 	// when we see this, decrement the b.SlotCtr
-	b.reSlotDone, _ = regexp.Compile("\"r\":{")
+	b.reSlotDone, _ = regexp.Compile("{\"r\":{")
+	// when we see the response to an rx query so we know how many chars
+	// are sitting in the serial buffer
+	b.reRxResponse, _ = regexp.Compile("{\"rx\":")
+	b.reFlowChar, _ = regexp.Compile("\u0011|\u0013")
+
 	//b.reCmdsWithNoRResponse, _ = regexp.Compile("[!~%]")
 	//log.Printf("Using slot approach for TinyG buffering. slotMax:%v, slotCtr:%v\n", b.SlotMax, b.SlotCtr)
 
@@ -196,6 +229,9 @@ func (b *BufferflowTinyg) Init() {
 
 	b.reComment, _ = regexp.Compile("\\(.*?\\)")
 	b.reComment2, _ = regexp.Compile(";.*")
+
+	//initialize query loop
+	b.rxQueryLoop(b.parent_serport)
 }
 
 // Serial buffer size approach
@@ -353,35 +389,84 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 				if *bufFlowDebugType == "on" {
 					// let's report on how our buffer is doing
 					// we need to unmarshall this r:{} response
+					// do some initial cleanup to remove \u0011 or \u0013
+					// that we're getting likely for flow control that is
+					// throwing off the unmarshal call
+					element2 := b.reFlowChar.ReplaceAllString(element, "")
 					var rm RespMsg
-					err2 := json.Unmarshal([]byte(element), &rm)
+					err2 := json.Unmarshal([]byte(element2), &rm)
+
+					bfc := BufFlowCmd{}
+					bfc.Cmd = "BufFlowDebug"
+					bfc.Gcode = doneCmd
+					bfc.Resp = element
+					bfc.Id = id
+					bfc.HowMuchWeThinkWeShouldRemove = len(doneCmd)
+					bfc.IsErr = false
+					bfc.IsMatchOnBufDecreaseCnt = false
 
 					if err2 != nil {
 						log.Printf("Problem decoding json on r:{} response. giving up. json:%v, err:%v\n", element, err2)
 						spErr(fmt.Sprintf("Problem decoding json on r:{} response. giving up. json:%v, err:%v", element, err2))
+						bfc.IsErr = true
+						bfc.Err = "Problem unmarshalling json which likely means we had dropped characters on the serial buffer. Giving up."
 						//return
 					} else {
 						log.Printf("RespMsg:%v\n", rm)
 
-						bfc := BufFlowCmd{}
-						bfc.Cmd = "BufFlowDebug"
-						bfc.Gcode = doneCmd
-						bfc.Resp = element
-						bfc.Id = id
-						bfc.HowMuchWeThinkWeShouldRemove = len(doneCmd)
 						if len(rm.F) > 2 {
 							bfc.HowMuchTinyTellsUsToRemove = rm.F[2]
 							if rm.F[2] == len(doneCmd) {
-								bfc.IsMatchOnBufDescreaseCnt = true
+								bfc.IsMatchOnBufDecreaseCnt = true
 							} else {
-								bfc.IsMatchOnBufDescreaseCnt = true
+								bfc.IsMatchOnBufDecreaseCnt = false
 							}
 						}
 
-						bfcm, err3 := json.Marshal(bfc)
-						if err3 == nil {
-							h.broadcastSys <- bfcm
+					}
+
+					bfcm, err3 := json.Marshal(bfc)
+					if err3 == nil {
+						h.broadcastSys <- bfcm
+					} else {
+						log.Fatal(fmt.Sprintf("Could not marshal the buffer flow debug json response. We should never get here and since we did we are exiting so you can debug me. Giving up. json:%v, err:%v", element, err3))
+					}
+
+					// also check for rx value being returned so we can decide
+					// if our serial buffer value is the same as what TinyG thinks
+					// it should be.
+					if b.reRxResponse.MatchString(element) {
+						var rrxm RespRxMsg
+						err4 := json.Unmarshal([]byte(element2), &rrxm)
+
+						bfrx := BufFlowRx{}
+						bfrx.Cmd = "BufFlowRxDebug"
+						bfrx.Resp = element
+						bfrx.IsErr = false
+						bfrx.IsMatchOnTotalBuf = false
+						bfrx.TotalInBufPerSpjs = b.q.LenOfCmds()
+
+						if err4 != nil {
+							bfrx.IsErr = true
+							bfrx.Err = "Could not unmarshall the r:rx json string? huh?"
+						} else {
+							bfrx.TotalInBufPerTinyG = 254 - rrxm.R.Rx
+
+							// do they match?
+							if bfrx.TotalInBufPerSpjs == bfrx.TotalInBufPerTinyG {
+								bfrx.IsMatchOnTotalBuf = true
+							} else {
+								bfrx.IsMatchOnTotalBuf = false
+							}
 						}
+
+						bfrxm, err5 := json.Marshal(bfrx)
+						if err5 == nil {
+							h.broadcastSys <- bfrxm
+						} else {
+							log.Fatal(fmt.Sprintf("Could not marshal the buffer flow debug RX json response. We should never get here and since we did we are exiting so you can debug me. Giving up. json:%v, err:%v", element, err5))
+						}
+
 					}
 				}
 
@@ -755,7 +840,43 @@ func (b *BufferflowTinyg) IsBufferGloballySendingBackIncomingData() bool {
 	return true
 }
 
+//Use this function to open a connection, write directly to serial port and close connection.
+//This is used for sending query requests outside of the normal buffered operations that will pause to wait for room in the grbl buffer
+//'?' is asynchronous to the normal buffer load and does not need to be paused when buffer full
+func (b *BufferflowTinyg) rxQueryLoop(p *serport) {
+	b.parent_serport = p //make note of this port for use in clearing the buffer later, on error.
+	ticker := time.NewTicker(5000 * time.Millisecond)
+	b.quit = make(chan int)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+
+				// we'll write a lazy formatted version of json to reduce the amt of chars
+				// chewed up since we're doing this outside the scope of the serial buffer counter
+				n2, err := p.portIo.Write([]byte("{rx:n}\n"))
+
+				log.Print("Just wrote ", n2, " bytes to serial: {rx:n}")
+
+				if err != nil {
+					errstr := "Error writing to " + p.portConf.Name + " " + err.Error() + " Closing port."
+					log.Print(errstr)
+					h.broadcastSys <- []byte(errstr)
+					ticker.Stop() //stop query loop if we can't write to the port
+					break
+				}
+			case <-b.quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
 func (b *BufferflowTinyg) Close() {
+	//stop the rx query loop when the serial port is closed off.
+	log.Println("Stopping the RX query loop")
+	b.quit <- 1
 }
 
 //	Gets the paused state of this buffer
