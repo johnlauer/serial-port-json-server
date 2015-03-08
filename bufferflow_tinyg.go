@@ -231,7 +231,7 @@ func (b *BufferflowTinyg) Init() {
 	b.reComment2, _ = regexp.Compile(";.*")
 
 	//initialize query loop
-	b.rxQueryLoop(b.parent_serport)
+	//b.rxQueryLoop(b.parent_serport)
 }
 
 // Serial buffer size approach
@@ -373,6 +373,9 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 				if err == nil {
 					h.broadcastSys <- bm
 				}
+
+				// ok, here's the deal. it seems that sometimes we may miss
+				// an r:{} coming back to us```
 
 				/*
 					if len(b.BufferSizeArray) > 1 {
