@@ -389,10 +389,13 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 				if *bufFlowDebugType == "on" {
 					// let's report on how our buffer is doing
 					// we need to unmarshall this r:{} response
+
 					// do some initial cleanup to remove \u0011 or \u0013
 					// that we're getting likely for flow control that is
 					// throwing off the unmarshal call
 					element2 := b.reFlowChar.ReplaceAllString(element, "")
+
+					// unmarshall r:{} json
 					var rm RespMsg
 					err2 := json.Unmarshal([]byte(element2), &rm)
 
