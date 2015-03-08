@@ -1,4 +1,4 @@
-// Version 1.79
+// Version 1.80
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	version      = "1.79"
-	versionFloat = float32(1.79)
+	version      = "1.80"
+	versionFloat = float32(1.80)
 	addr         = flag.String("addr", ":8989", "http service address")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
 	//verbose = flag.Bool("v", true, "show debug logging")
@@ -46,7 +46,7 @@ var (
 	bufFlowDebugType = flag.String("bufflowdebug", "on", "off = (default) We do not send back any debug JSON, on = We will send back a JSON response with debug info based on the configuration of the buffer flow that the user picked")
 
 	// hostname. allow user to override, otherwise we look it up
-	hostname = flag.String("hostname", "not-set", "Override the hostname we get from the OS")
+	hostname = flag.String("hostname", "unknown-hostname", "Override the hostname we get from the OS")
 )
 
 type NullWriter int
@@ -89,7 +89,7 @@ func main() {
 
 	// hostname
 	hn, _ := os.Hostname()
-	if *hostname == "not-set" {
+	if *hostname == "unknown-hostname" {
 		*hostname = hn
 	}
 	log.Println("Hostname:", *hostname)
