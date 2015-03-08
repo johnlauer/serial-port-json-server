@@ -239,7 +239,9 @@ func write(wr writeRequest, id string) {
 	}
 
 	// garbage collect
-	debug.FreeOSMemory()
+	if *gcType == "max" {
+		debug.FreeOSMemory()
+	}
 
 }
 
