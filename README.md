@@ -49,7 +49,7 @@ Running on alternate port:
 - Windows 
 `serial-port-json-server.exe -addr :8000`
 
-Filter the serial port list so it has less irrelevant ports in the list:
+Filter the serial port list so it has relevant ports in the list:
 - Mac/Linux
 `./serial-port-json-server -regex usb|acm`
 - Windows 
@@ -60,6 +60,13 @@ Garbage collect mode:
 `./serial-port-json-server -gc std`
 - Windows 
 `serial-port-json-server.exe -gc max`
+
+Override the default hostname:
+- Mac/Linux
+`./serial-port-json-server -hostname myMacSpjs`
+- Windows 
+`serial-port-json-server.exe -hostname meWindowsBox`
+
 
 Here's a screenshot of a successful run on Windows x64. Make sure you allow the firewall to give access to Serial Port JSON Server or you'll wonder why it's not working.
 <img src="http://chilipeppr.com/img/screenshots/serialportjsonserver_running.png">
@@ -129,7 +136,7 @@ On slower devices like Raspberry Pi's it is evident that the slowness of the CPU
 
 Garbage collection does a "stop the world" technique which on the Raspi is so slow that SPJS may be unresponsive for 5 or even 10 seconds. This is long enough that data starts spilling off the serial port buffer inside the TinyG. On faster hosts like Windows or Mac this doesn't happen. Therefore some additional tricks have been added to SPJS to try to alleviate this problem from rearing it's ugly head. 
 
-SPJS by default will start in gc=max mode. This means SPJS will forcibly garbage collect non-stop on each receive on the serial port. This essentially doubles or triples SPJS's CPU usage, but it solves the stopping of the world. You can try to use gc=std which is the mode SPJS has been running in since its inception, but some folks did find even on non-Raspi platforms that they may occasionally get stalled jobs. It is recommended to keep gc=max as the default, but you could try your own settings including trying gc=off which means all garbage collection is turned off and thus you'll eventually run out of memory. You can send in a "gc" into SPJS via the websocket to force manual garbage collection in this instance.
+SPJS by default will start in gc=std mode. This means SPJS will simply use the default garbage collection from Golang. You could instead try gc=max. This means SPJS will forcibly garbage collect non-stop on each receive and send on the serial port. This essentially doubles or triples SPJS's CPU usage, but it reduces the chance for the stopping of the world. It is recommended to keep gc=std as the default, but you could try your own settings including trying gc=off which means all garbage collection is turned off and thus you'll eventually run out of memory. You can send in a "gc" into SPJS via the websocket to force manual garbage collection in this instance.
 
 Broadcast Command
 -------
@@ -142,7 +149,7 @@ And SPJS would regurgitate the command to all connected sockets like:
 `{"Cmd":"Broadcast","Msg":"get-settings\n"}`
 
 And if the ChiliPeppr workspace were listening for all incoming {"Cmd":"Broadcast","Msg":...} signals and specifically the "get-settings" command then it could respond with something like:
-`{"Cmd":"Settings","Macro1":"..."}`
+`broadcast settings x:1, y:10, z:4`
 
 FAQ
 -------
@@ -221,6 +228,11 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.80
+- "Broadcast" command added which simply regurgitates out to all clients whatever is sent in. Allows for end-client to end-client communication via SPJS.
+- "Hostname" was added whereby SPJS now tries to figure out the hostname of the machine running SPJS and pass it back to the end-clients. This helps to differentiate multiple SPJS's on your network. You can set this from the command line as well on launch.
+- Garbage collection improvement. Golang 1.4 got some big garbage collection improvements. This is the first time SPJS was built with this new version of golang for the binaries made publicly available.
+
 Changes in 1.77
 - Completely fixed stalled jobs. This was due to garbage collection doing a "stop the world" so the fix was to force garbage collection on key events.
 

@@ -419,7 +419,7 @@ func spList() {
 
 		if !isFound {
 			// artificially push to front of port list
-			log.Println("Did not find an open port in the serial port list. We are going to artificially push it onto the list. port:%v", port.portConf.Name)
+			log.Println(fmt.Sprintf("Did not find an open port in the serial port list. We are going to artificially push it onto the list. port:%v", port.portConf.Name))
 			var ossp OsSerialPort
 			ossp.Name = port.portConf.Name
 			ossp.FriendlyName = port.portConf.Name
