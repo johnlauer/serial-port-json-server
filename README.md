@@ -73,6 +73,17 @@ Here's a screenshot of a successful run on Windows x64. Make sure you allow the 
 
 Binaries for Download
 ---------
+<style type="text/css">
+.list-group {
+	padding-left: 2em;
+	padding: 0;
+}
+.list-group-item {
+	display: list-item;
+	text-align: -webkit-match-parent;
+	list-style-type: disc;
+}
+</style>
 <p xstyle="padding:0 0 12px 0;">Version 1.80<br/>
 Build date: Mar 8, 2015<br/>
 Build has new garbage collection, "broadcast" tag, and "hostname" tag support.</p>
