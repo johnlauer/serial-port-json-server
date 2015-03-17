@@ -73,35 +73,20 @@ Here's a screenshot of a successful run on Windows x64. Make sure you allow the 
 
 Binaries for Download
 ---------
-<style type="text/css">
-.list-group {
-	padding-left: 2em;
-	padding: 0;
-}
-.list-group-item {
-	display: list-item;
-	text-align: -webkit-match-parent;
-	list-style-type: disc;
-}
-</style>
-<p xstyle="padding:0 0 12px 0;">Version 1.80<br/>
-Build date: Mar 8, 2015<br/>
-Build has new garbage collection, "broadcast" tag, and "hostname" tag support.</p>
-<div class="list-group">
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_windows_386.zip">Windows x32</a>
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_windows_amd64.zip">Windows x64</a>
-<a class="list-group-item" target="_blank" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_macosx_v1.80.zip">Mac OS X x64 (Thanks to Riley Porter)</a>
-<!-- <a class="list-group-item" target="_blank" href="http://github.com/johnlauer/serial-port-json-server">Mac OS X x64 (Compile from Github)</a> -->
-<!-- <a class="list-group-item" target="_blank" href="http://github.com/johnlauer/serial-port-json-server">Mac OS X (Compile from Github)</a> -->
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_linux_386.tar.gz">Linux x32</a>
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_linux_amd64.tar.gz">Linux x64</a>
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv6.tar.gz">Raspberry Pi 1 (Linux ARMv6)</a>
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv7.tar.gz">Raspberry Pi 2 (Linux ARMv7)</a>
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv7.tar.gz">Beagle Bone Black (Linux ARMv7)</a>
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv8.tar.gz">Linux ARMv8 (AppliedMicro X-Gene)</a>
-<a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
-<a class="list-group-item" target="_blank" href="http://github.com/johnlauer/serial-port-json-server">Compile from source (Github)</a>
-</div>
+Version 1.80
+Build date: Mar 8, 2015
+Build has new garbage collection, "broadcast" tag, and "hostname" tag support.
+
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_windows_386.zip">Windows x32</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_windows_amd64.zip">Windows x64</a>
+- <a class="list-group-item" target="_blank" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_macosx_v1.80.zip">Mac OS X x64 (Thanks to Riley Porter)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_linux_386.tar.gz">Linux x32</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_linux_amd64.tar.gz">Linux x64</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv6.tar.gz">Raspberry Pi 1 (Linux ARMv6)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv7.tar.gz">Raspberry Pi 2 (Linux ARMv7)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv7.tar.gz">Beagle Bone Black (Linux ARMv7)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv8.tar.gz">Linux ARMv8 (AppliedMicro X-Gene)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
 
 Version 1.77
 Build date: Feb 1, 2015
