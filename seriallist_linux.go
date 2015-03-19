@@ -16,12 +16,13 @@ import (
 	"io/ioutil"
 	"log"
 	"regexp"
+	"sort"
 )
 
 func getList() ([]OsSerialPort, os.SyscallError) {
-	//return getListViaWmiPnpEntity()
+
 	//return getListViaTtyList()
-	return getAllPortsWithManufacturer()
+	return getAllPortsViaManufacturer()
 }
 
 func getListViaTtyList() ([]OsSerialPort, os.SyscallError) {
@@ -42,10 +43,10 @@ func getListViaTtyList() ([]OsSerialPort, os.SyscallError) {
 			list[ctr].FriendlyName = f.Name()
 
 			// see if we can get a better friendly name
-			friendly, ferr := getMetaDataForPort(f.Name())
-			if ferr == nil {
-				list[ctr].FriendlyName = friendly
-			}
+			//friendly, ferr := getMetaDataForPort(f.Name())
+			//if ferr == nil {
+			//	list[ctr].FriendlyName = friendly
+			//}
 
 			//log.Println("Added serial port to list: ", list[ctr])
 			ctr++
@@ -77,13 +78,15 @@ type deviceClass struct {
 }
 
 func getDeviceClassList() {
-
+	// TODO: take list from http://www.usb.org/developers/defined_class
+	// and create mapping.
 }
 
-func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
+func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 	var err os.SyscallError
 	var list []OsSerialPort
 
+	// LOOK FOR THE WORD MANUFACTURER
 	// search /sys folder
 	oscmd := exec.Command("find", "/sys/", "-name", "manufacturer", "-print") //, "2>", "/dev/null")
 	// Stdout buffer
@@ -110,20 +113,53 @@ func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
 	// analyze stdout
 	// we should be able to split on newline to each file
 	files := strings.Split(string(cmdOutput.Bytes()), "\n")
-	if len(files) == 0 {
+	/*if len(files) == 0 {
 		return nil, err
+	}*/
+
+	// LOOK FOR THE WORD PRODUCT
+	oscmd2 := exec.Command("find", "/sys/", "-name", "product", "-print") //, "2>", "/dev/null")
+	cmdOutput2 := &bytes.Buffer{}
+	oscmd2.Stdout = cmdOutput2
+
+	oscmd2.Start()
+	oscmd2.Wait()
+
+	filesFromProduct := strings.Split(string(cmdOutput2.Bytes()), "\n")
+
+	// append both arrays so we have one (then we'll have to de-dupe)
+	files = append(files, filesFromProduct...)
+
+	// Now get directories from each file
+	re := regexp.MustCompile("/(manufacturer|product)$")
+	var mapfile map[string]int
+	mapfile = make(map[string]int)
+	for _, element := range files {
+		// make this directory be a key so it's unique. increment int so we know
+		// for debug how many times this directory appeared
+		mapfile[re.ReplaceAllString(element, "")]++
 	}
 
-	reRemoveManuf, _ := regexp.Compile("/manufacturer$")
+	// sort the directory keys
+	mapfilekeys := make([]string, len(mapfile))
+	i := 0
+	for key, _ := range mapfile {
+		mapfilekeys[i] = key
+		i++
+	}
+	sort.Strings(mapfilekeys)
+
+	//reRemoveManuf, _ := regexp.Compile("/manufacturer$")
 	reNewLine, _ := regexp.Compile("\n")
 
-	for _, element := range files {
+	// loop on unique directories
+	for _, directory := range mapfilekeys {
 
-		if len(element) == 0 {
+		if len(directory) == 0 {
 			continue
 		}
 
-		// for each manufacturer file, we need to read the val from the file
+		// for each manufacturer or product file, we need to read the val from the file
 		// but more importantly find the tty ports for this directory
 
 		// for example, for the TinyG v9 which creates 2 ports, the cmd:
@@ -135,7 +171,7 @@ func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
 		*/
 
 		// figure out the directory
-		directory := reRemoveManuf.ReplaceAllString(element, "")
+		//directory := reRemoveManuf.ReplaceAllString(element, "")
 
 		// read the device class so we can remove stuff we don't want like hubs
 		deviceClassBytes, errRead4 := ioutil.ReadFile(directory + "/bDeviceClass")
@@ -154,21 +190,22 @@ func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
 		}
 
 		// read the manufacturer
-		manufBytes, errRead := ioutil.ReadFile(element)
+		manufBytes, errRead := ioutil.ReadFile(directory + "/manufacturer")
+		manuf := ""
 		if errRead != nil {
-			// there must be a permission issue
+			// the file could possibly just not exist, which is normal
 			log.Printf("Problem reading in manufacturer text file. Permissions maybe? err:%v", errRead)
 			//return nil, err
-			continue
+			//continue
 		}
-		manuf := string(manufBytes)
+		manuf = string(manufBytes)
 		manuf = reNewLine.ReplaceAllString(manuf, "")
 
 		// read the product
 		productBytes, errRead2 := ioutil.ReadFile(directory + "/product")
 		product := ""
 		if errRead2 != nil {
-			// there must be a permission issue
+			// the file could possibly just not exist, which is normal
 			//log.Printf("Problem reading in product text file. Permissions maybe? err:%v", errRead2)
 			//return nil, err
 		}
@@ -179,7 +216,7 @@ func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
 		serialNumBytes, errRead3 := ioutil.ReadFile(directory + "/serial")
 		serialNum := ""
 		if errRead3 != nil {
-			// there must be a permission issue
+			// the file could possibly just not exist, which is normal
 			//log.Printf("Problem reading in serial number text file. Permissions maybe? err:%v", errRead3)
 			//return nil, err
 		}
@@ -189,7 +226,7 @@ func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
 		log.Printf("%v : %v (%v) DevClass:%v", manuf, product, serialNum, deviceClass)
 
 		// search folder that had manufacturer file in it
-		log.Printf("The directory we are searching is:%v", directory)
+		log.Printf("\tDirectory searching: %v", directory)
 
 		// -name tty[AU]* -print
 		oscmd = exec.Command("find", directory, "-name", "tty[AU]*", "-print")
@@ -202,7 +239,8 @@ func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
 		errstart = oscmd.Start()
 		if errstart != nil {
 			log.Printf("Got error running find cmd. Maybe they don't have it installed? %v:", errstart)
-			return nil, err
+			//return nil, err
+			continue
 		}
 		//log.Printf("Waiting for command to finish... %v", oscmd)
 
@@ -210,7 +248,8 @@ func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
 
 		if errwait != nil {
 			log.Printf("Command finished with error: %v", errwait)
-			return nil, err
+			//return nil, err
+			continue
 		}
 
 		//log.Printf("Finished searching manuf directory without error. Good stuff. stdout:%v", string(cmdOutput.Bytes()))
@@ -219,12 +258,84 @@ func getAllPortsWithManufacturer() ([]OsSerialPort, os.SyscallError) {
 		// we should be able to split on newline to each file
 		filesTty := strings.Split(string(cmdOutput.Bytes()), "\n")
 
+		// generate a unique list of tty ports below
+		//var ttyPorts []string
+		var m map[string]int
+		m = make(map[string]int)
 		for _, fileTty := range filesTty {
+			if len(fileTty) == 0 {
+				continue
+			}
 			log.Printf("\t%v", fileTty)
+			ttyPort := regexp.MustCompile("^.*/").ReplaceAllString(fileTty, "")
+			ttyPort = reNewLine.ReplaceAllString(ttyPort, "")
+			m[ttyPort]++
+			//ttyPorts = append(ttyPorts, ttyPort)
 		}
+		log.Printf("\tlist of ports on this. map:%v\n", m)
+		log.Printf("\t.")
+		//sort.Strings(ttyPorts)
+
+		// create order array of ttyPorts so they're in order when
+		// we send back via json. this makes for more human friendly reading
+		// cuz anytime you do a hash map you can get out of order
+		ttyPorts := []string{}
+		for key, _ := range m {
+			ttyPorts = append(ttyPorts, key)
+		}
+		sort.Strings(ttyPorts)
+
+		// we now have a very nice list of ttyports for this device. many are just 1 port
+		// however, for some advanced devices there are 2 or more ports associated and
+		// we have this data correct now, so build out the final OsSerialPort list
+		for _, key := range ttyPorts {
+			listitem := OsSerialPort{
+				Name:         "/dev/" + key,
+				FriendlyName: manuf, // + " " + product,
+				SerialNumber: serialNum,
+				DeviceClass:  deviceClass,
+			}
+			if len(product) > 0 {
+				listitem.FriendlyName += " " + product
+			}
+			listitem.FriendlyName += " (" + key + ")"
+			listitem.FriendlyName = friendlyNameCleanup(listitem.FriendlyName)
+
+			// append related tty ports
+			for _, keyRelated := range ttyPorts {
+				if key == keyRelated {
+					continue
+				}
+				listitem.RelatedNames = append(listitem.RelatedNames, keyRelated)
+			}
+			list = append(list, listitem)
+		}
+
 	}
 
+	// sort ports by item.Name
+	sort.Sort(ByName(list))
+
+	log.Printf("Final port list: %v", list)
 	return list, err
+}
+
+// ByAge implements sort.Interface for []Person based on
+// the Age field.
+type ByName []OsSerialPort
+
+func (a ByName) Len() int           { return len(a) }
+func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
+
+func friendlyNameCleanup(fnin string) (fnout string) {
+	// This is an industry intelligence method to just cleanup common names
+	// out there so we don't get ugly friendly names back
+	fnout = regexp.MustCompile("\\(www.arduino.cc\\)").ReplaceAllString(fnin, "")
+	fnout = regexp.MustCompile("Arduino\\s+Arduino").ReplaceAllString(fnout, "Arduino")
+	fnout = regexp.MustCompile("\\s+").ReplaceAllString(fnout, " ")       // multi space to single space
+	fnout = regexp.MustCompile("^\\s+|\\s+$").ReplaceAllString(fnout, "") // trim
+	return fnout
 }
 
 func getMetaDataForPort(port string) (string, error) {
