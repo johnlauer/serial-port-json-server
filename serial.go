@@ -82,7 +82,11 @@ type SpPortList struct {
 type SpPortItem struct {
 	Name                      string
 	Friendly                  string
+	SerialNumber              string
+	DeviceClass               string
 	IsOpen                    bool
+	IsPrimary                 bool
+	RelatedNames              []string
 	Baud                      int
 	RtsOn                     bool
 	DtrOn                     bool
@@ -435,7 +439,35 @@ func spList() {
 
 	ctr := 0
 	for _, item := range list {
-		spl.SerialPorts[ctr] = SpPortItem{item.Name, item.FriendlyName, false, 0, false, false, "", availableBufferAlgorithms, versionFloat}
+
+		/*
+			Name                      string
+			Friendly                  string
+			IsOpen                    bool
+			IsPrimary                 bool
+			RelatedNames              []string
+			Baud                      int
+			RtsOn                     bool
+			DtrOn                     bool
+			BufferAlgorithm           string
+			AvailableBufferAlgorithms []string
+			Ver                       float32
+		*/
+		spl.SerialPorts[ctr] = SpPortItem{
+			Name:                      item.Name,
+			Friendly:                  item.FriendlyName,
+			SerialNumber:              item.SerialNumber,
+			DeviceClass:               item.DeviceClass,
+			IsOpen:                    false,
+			IsPrimary:                 false,
+			RelatedNames:              item.RelatedNames,
+			Baud:                      0,
+			RtsOn:                     false,
+			DtrOn:                     false,
+			BufferAlgorithm:           "",
+			AvailableBufferAlgorithms: availableBufferAlgorithms,
+			Ver: versionFloat,
+		}
 
 		// figure out if port is open
 		//spl.SerialPorts[ctr].IsOpen = false
