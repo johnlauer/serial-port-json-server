@@ -223,6 +223,16 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 		serialNum = string(serialNumBytes)
 		serialNum = reNewLine.ReplaceAllString(serialNum, "")
 
+		// read idvendor
+		idVendorBytes, _ := ioutil.ReadFile(directory + "/idVendor")
+		idVendor := ""
+		idVendor = reNewLine.ReplaceAllString(string(idVendorBytes), "")
+
+		// read idProduct
+		idProductBytes, _ := ioutil.ReadFile(directory + "/idProduct")
+		idProduct := ""
+		idProduct = reNewLine.ReplaceAllString(string(idProductBytes), "")
+
 		log.Printf("%v : %v (%v) DevClass:%v", manuf, product, serialNum, deviceClass)
 
 		// search folder that had manufacturer file in it
@@ -294,6 +304,10 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 				FriendlyName: manuf, // + " " + product,
 				SerialNumber: serialNum,
 				DeviceClass:  deviceClass,
+				Manufacturer: manuf,
+				Product:      product,
+				IdVendor:     idVendor,
+				IdProduct:    idProduct,
 			}
 			if len(product) > 0 {
 				listitem.FriendlyName += " " + product
@@ -306,7 +320,7 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 				if key == keyRelated {
 					continue
 				}
-				listitem.RelatedNames = append(listitem.RelatedNames, keyRelated)
+				listitem.RelatedNames = append(listitem.RelatedNames, "/dev/"+keyRelated)
 			}
 			list = append(list, listitem)
 		}
