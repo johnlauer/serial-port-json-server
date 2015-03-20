@@ -84,6 +84,10 @@ type SpPortItem struct {
 	Friendly                  string
 	SerialNumber              string
 	DeviceClass               string
+	Manufacturer              string
+	Product                   string
+	IdProduct                 string
+	IdVendor                  string
 	IsOpen                    bool
 	IsPrimary                 bool
 	RelatedNames              []string
@@ -458,6 +462,10 @@ func spList() {
 			Friendly:                  item.FriendlyName,
 			SerialNumber:              item.SerialNumber,
 			DeviceClass:               item.DeviceClass,
+			Manufacturer:              item.Manufacturer,
+			Product:                   item.Product,
+			IdProduct:                 item.IdProduct,
+			IdVendor:                  item.IdVendor,
 			IsOpen:                    false,
 			IsPrimary:                 false,
 			RelatedNames:              item.RelatedNames,
