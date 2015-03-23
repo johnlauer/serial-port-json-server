@@ -882,7 +882,11 @@ func (b *BufferflowTinyg) rxQueryLoop(p *serport) {
 func (b *BufferflowTinyg) Close() {
 	//stop the rx query loop when the serial port is closed off.
 	log.Println("Stopping the RX query loop")
-	b.quit <- 1
+	b.ReleaseLock()
+	b.Unpause()
+	go func() {
+		b.quit <- 1
+	}()
 }
 
 //	Gets the paused state of this buffer
