@@ -124,6 +124,16 @@ func checkCmd(m []byte) {
 
 	if strings.HasPrefix(sl, "open") {
 
+		// check if user wants to open this port as a secondary port
+		// this doesn't mean much other than allowing the UI to show
+		// a port as primary and make other ports sort of act less important
+		isSecondary := false
+		if strings.HasPrefix(s, "open secondary") {
+			isSecondary = true
+			// swap out the word secondary
+			s = strings.Replace(s, "open secondary", "open", 1)
+		}
+
 		args := strings.Split(s, " ")
 		if len(args) < 3 {
 			go spErr("You did not specify a port and baud rate in your open cmd")
@@ -148,7 +158,7 @@ func checkCmd(m []byte) {
 			buftype := strings.Replace(args[3], "\n", "", -1)
 			bufferAlgorithm = buftype
 		}
-		go spHandlerOpen(args[1], baud, bufferAlgorithm)
+		go spHandlerOpen(args[1], baud, bufferAlgorithm, isSecondary)
 
 	} else if strings.HasPrefix(sl, "close") {
 

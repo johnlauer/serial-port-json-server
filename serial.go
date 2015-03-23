@@ -84,10 +84,6 @@ type SpPortItem struct {
 	Friendly                  string
 	SerialNumber              string
 	DeviceClass               string
-	Manufacturer              string
-	Product                   string
-	IdProduct                 string
-	IdVendor                  string
 	IsOpen                    bool
 	IsPrimary                 bool
 	RelatedNames              []string
@@ -121,7 +117,11 @@ func (sh *serialhub) run() {
 		select {
 		case p := <-sh.register:
 			log.Print("Registering a port: ", p.portConf.Name)
-			h.broadcastSys <- []byte("{\"Cmd\":\"Open\",\"Desc\":\"Got register/open on port.\",\"Port\":\"" + p.portConf.Name + "\",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + ",\"BufferType\":\"" + p.BufferType + "\"}")
+			isPrimary := "false"
+			if p.IsPrimary {
+				isPrimary = "true"
+			}
+			h.broadcastSys <- []byte("{\"Cmd\":\"Open\",\"Desc\":\"Got register/open on port.\",\"Port\":\"" + p.portConf.Name + "\",\"IsPrimary\":" + isPrimary + ",\"Baud\":" + strconv.Itoa(p.portConf.Baud) + ",\"BufferType\":\"" + p.BufferType + "\"}")
 			//log.Print(p.portConf.Name)
 			sh.ports[p] = true
 		case p := <-sh.unregister:
@@ -462,10 +462,6 @@ func spList() {
 			Friendly:                  item.FriendlyName,
 			SerialNumber:              item.SerialNumber,
 			DeviceClass:               item.DeviceClass,
-			Manufacturer:              item.Manufacturer,
-			Product:                   item.Product,
-			IdProduct:                 item.IdProduct,
-			IdVendor:                  item.IdVendor,
 			IsOpen:                    false,
 			IsPrimary:                 false,
 			RelatedNames:              item.RelatedNames,
@@ -488,6 +484,7 @@ func spList() {
 			spl.SerialPorts[ctr].RtsOn = myport.portConf.RtsOn
 			spl.SerialPorts[ctr].DtrOn = myport.portConf.DtrOn
 			spl.SerialPorts[ctr].BufferAlgorithm = myport.BufferType
+			spl.SerialPorts[ctr].IsPrimary = myport.IsPrimary
 		}
 		//ls += "{ \"name\" : \"" + item.Name + "\", \"friendly\" : \"" + item.FriendlyName + "\" },\n"
 		ctr++

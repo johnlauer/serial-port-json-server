@@ -14,6 +14,8 @@ type serport struct {
 	portConf *serial.Config
 	portIo   io.ReadWriteCloser
 
+	done chan bool // signals the end of this request
+
 	// Keep track of whether we're being actively closed
 	// just so we don't show scary error messages
 	isClosing bool
@@ -31,6 +33,11 @@ type serport struct {
 	BufferType string
 	//bufferwatcher *BufferflowDummypause
 	bufferwatcher Bufferflow
+
+	// Keep track of whether this is the primary serial port, i.e. cnc controller
+	// or if its secondary, i.e. a backup port or arduino or something tertiary
+	IsPrimary   bool
+	IsSecondary bool
 }
 
 type Cmd struct {
@@ -63,9 +70,11 @@ type SpPortMessage struct {
 }
 
 func (p *serport) reader() {
+
 	//var buf bytes.Buffer
+	ch := make([]byte, 1024)
 	for {
-		ch := make([]byte, 1024)
+
 		n, err := p.portIo.Read(ch)
 
 		//if we detect that port is closing, break out o this for{} loop.
@@ -255,7 +264,7 @@ func (p *serport) writerNoBuf() {
 	p.portIo.Close()
 }
 
-func spHandlerOpen(portname string, baud int, buftype string) {
+func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) {
 
 	log.Print("Inside spHandler")
 
@@ -268,9 +277,13 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 	out.WriteString(" baud")
 	log.Print(out.String())
 
-	//h.broadcast <- []byte("Opened a serial port bitches")
-	h.broadcastSys <- out.Bytes()
+	//h.broadcast <- []byte("Opened a serial port ")
+	//h.broadcastSys <- out.Bytes()
 
+	isPrimary := true
+	if isSecondary {
+		isPrimary = false
+	}
 	conf := &serial.Config{Name: portname, Baud: baud, RtsOn: true}
 	log.Print("Created config for port")
 	log.Print(conf)
@@ -288,7 +301,7 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 	log.Print("Opened port successfully")
 	//p := &serport{send: make(chan []byte, 256), portConf: conf, portIo: sp}
 	// we can go up to 256,000 lines of gcode in the buffer
-	p := &serport{sendBuffered: make(chan Cmd, 256*1000), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype}
+	p := &serport{sendBuffered: make(chan Cmd, 256000), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype, IsPrimary: isPrimary, IsSecondary: isSecondary}
 
 	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
 	if buftype == "tinyg" {
@@ -327,6 +340,37 @@ func spHandlerOpen(portname string, baud int, buftype string) {
 	// this is thread to send to serial port regardless of block
 	go p.writerNoBuf()
 	p.reader()
+	//go p.reader()
+	//p.done = make(chan bool)
+	//<-p.done
+}
+
+func spHandlerCloseExperimental(p *serport) {
+	h.broadcastSys <- []byte("Pre-closing serial port " + p.portConf.Name)
+	p.isClosing = true
+	//close the port
+
+	p.bufferwatcher.Close()
+	h.broadcastSys <- []byte("Bufferwatcher closed")
+	p.portIo.Close()
+	//elicit response from hardware to close out p.reader()
+	//_, _ = p.portIo.Write([]byte("?"))
+	//p.portIo.Read(nil)
+
+	//close(p.portIo)
+	h.broadcastSys <- []byte("portIo closed")
+	close(p.sendBuffered)
+	h.broadcastSys <- []byte("p.sendBuffered closed")
+	close(p.sendNoBuf)
+	h.broadcastSys <- []byte("p.sendNoBuf closed")
+
+	//p.done <- true
+
+	// unregister myself
+	// we already have a deferred unregister in place from when
+	// we opened. the only thing holding up that thread is the p.reader()
+	// so if we close the reader we should get an exit
+	h.broadcastSys <- []byte("Closing serial port " + p.portConf.Name)
 }
 
 func spHandlerClose(p *serport) {
