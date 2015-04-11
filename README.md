@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.80
+Version 1.81
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port.
 
@@ -55,7 +55,7 @@ Filter the serial port list so it has relevant ports in the list:
 - Windows 
 `serial-port-json-server.exe -regex com8|com9|com2[0-5]|tinyg`
 
-Garbage collect mode:
+Garbage collect mode (deprecated):
 - Mac/Linux
 `./serial-port-json-server -gc std`
 - Windows 
@@ -146,7 +146,7 @@ hostname | | Get the hostname of the current SPJS instance
 
 Garbage collection
 -------
-On slower devices like Raspberry Pi's it is evident that the slowness of the CPU can cause some issues. In particular, on a Tinyg so much data can flow back from the serial device that it can overwhelm the Raspberry Pi such that serial data is lost if the Pi can't process it quick enough. This usually isn't a problem until a garbage collection process is triggered by golang for SPJS. 
+On slower devices like Raspberry Pis (not the new Raspberry Pi 2) it is evident that the slowness of the CPU can cause some issues. In particular, on a Tinyg so much data can flow back from the serial device that it can overwhelm the Raspberry Pi such that serial data is lost if the Pi can't process it quick enough. This usually isn't a problem until a garbage collection process is triggered by golang for SPJS. 
 
 Garbage collection does a "stop the world" technique which on the Raspi is so slow that SPJS may be unresponsive for 5 or even 10 seconds. This is long enough that data starts spilling off the serial port buffer inside the TinyG. On faster hosts like Windows or Mac this doesn't happen. Therefore some additional tricks have been added to SPJS to try to alleviate this problem from rearing it's ugly head. 
 
@@ -242,6 +242,9 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.81
+- On Linux, SPJS now tries to grab the Manufacturer and Name of the serial port to give you pretty names for your connected devices. Arduinos and TinyGs show up with nicely descriptive names now instead of just ttyUSB0 or ttyACM0.
+
 Changes in 1.80
 - "Broadcast" command added which simply regurgitates out to all clients whatever is sent in. Allows for end-client to end-client communication via SPJS.
 - "Hostname" was added whereby SPJS now tries to figure out the hostname of the machine running SPJS and pass it back to the end-clients. This helps to differentiate multiple SPJS's on your network. You can set this from the command line as well on launch.
