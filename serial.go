@@ -3,13 +3,20 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	//"github.com/kballard/go-shellquote"
+	//"github.com/johnlauer/goserial"
+	"github.com/mikepb/go-serial"
 	"log"
+	"os"
 	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type writeRequest struct {
@@ -537,6 +544,19 @@ func spClose(portname string) {
 	}
 }
 
+func spProgram(portname string, boardname string, filePath string) {
+
+	isFound, flasher, mycmd := assembleCompilerCommand(boardname, portname, filePath)
+
+	log.Printf("is Found: %v", isFound)
+
+	if isFound {
+		spHandlerProgram(flasher, mycmd)
+	} else {
+		spErr("We could not find the serial port " + portname + " or the board " + boardname + "  that you were trying to program.")
+	}
+}
+
 func spWriteJson(arg string) {
 
 	log.Printf("spWriteJson. arg:%v\n", arg)
@@ -634,6 +654,140 @@ func spWrite(arg string) {
 	// send it to the write channel
 	sh.write <- wr
 
+}
+
+func formatCmdline(cmdline string, boardOptions map[string]string) (string, bool) {
+
+	list := strings.Split(cmdline, "{")
+	fmt.Println("%v", list)
+	if len(list) == 1 {
+		return cmdline, false
+	}
+	cmdline = ""
+	for _, item := range list {
+		item_s := strings.Split(item, "}")
+		item = boardOptions[item_s[0]]
+		if len(item_s) == 2 {
+			cmdline += item + item_s[1]
+		} else {
+			if item != "" {
+				cmdline += item
+			} else {
+				cmdline += item_s[0]
+			}
+		}
+	}
+	fmt.Println(cmdline)
+	return cmdline, true
+}
+
+func assembleCompilerCommand(boardname string, portname string, filePath string) (bool, string, string) {
+	// walk across the local filesystem, find boards.txt files, search for the board in it
+
+	boardFields := strings.Split(boardname, ":")
+	if len(boardFields) != 3 {
+		h.broadcastSys <- []byte("Board need to be specified in core:architecture:name format")
+		return false, "", ""
+	}
+	file, err := os.Open(boardFields[0] + "/hardware/" + boardFields[1] + "/boards.txt")
+	if err != nil {
+		h.broadcastSys <- []byte("Could not find board: " + boardname)
+		fmt.Println("Error:", err)
+		return false, "", ""
+	}
+	scanner := bufio.NewScanner(file)
+	cmdline := ""
+	//ide_tools_dir := "./" + boardFields[0] + "/tools"
+
+	boardOptions := make(map[string]string)
+	uploadOptions := make(map[string]string)
+
+	for scanner.Scan() {
+		// map everything matching with boardname
+		if strings.Contains(scanner.Text(), boardFields[2]) {
+			arr := strings.Split(scanner.Text(), "=")
+			arr[0] = strings.Replace(arr[0], boardFields[2]+".", "", 1)
+			boardOptions[arr[0]] = arr[1]
+		}
+	}
+
+	boardOptions["serial.port"] = portname
+	boardOptions["build.project_name"] = strings.Trim(filePath, "\n")
+
+	//fmt.Printf("boardOptions %v %T", boardOptions, boardOptions)
+
+	file.Close()
+	file, err = os.Open(boardFields[0] + "/hardware/" + boardFields[1] + "/platform.txt")
+	if err != nil {
+		h.broadcastSys <- []byte("Could not find board: " + boardname)
+		fmt.Println("Error:", err)
+		return false, "", ""
+	}
+	scanner = bufio.NewScanner(file)
+
+	tool := boardOptions["upload.tool"]
+
+	for scanner.Scan() {
+		//fmt.Println(scanner.Text());
+		// map everything matching with upload
+		if strings.Contains(scanner.Text(), tool) {
+			arr := strings.Split(scanner.Text(), "=")
+			uploadOptions[arr[0]] = arr[1]
+			arr[0] = strings.Replace(arr[0], "tools."+tool+".", "", 1)
+			boardOptions[arr[0]] = arr[1]
+		}
+	}
+	file.Close()
+
+	version := uploadOptions["runtime.tools."+tool+".version"]
+	path, err := filepath.Abs(boardFields[0] + "/tools/" + tool + "/" + version)
+	if err != nil {
+		h.broadcastSys <- []byte("Could not find board: " + boardname)
+		fmt.Println("Error:", err)
+		return false, "", ""
+	}
+
+	boardOptions["runtime.tools.avrdude.path"] = path
+
+	//boardOptions["config.path"] = uploadOptions["tools."+tool+".config.path"]
+	//boardOptions["path"] = uploadOptions["tools."+tool+".path"]
+
+	var winded = true
+
+	cmdline = uploadOptions["tools."+tool+".upload.pattern"]
+	// remove cmd.path as it is handles differently
+	cmdline = strings.Replace(cmdline, "\"{cmd.path}\"", " ", 1)
+	cmdline = strings.Replace(cmdline, "\"", "", -1)
+
+	for winded != false {
+		cmdline, winded = formatCmdline(cmdline, boardOptions)
+	}
+
+	// cmdline := "-C" + ide_tools_dir + "etc/avrdude.conf" +
+	// 	" -c" + protocol +
+	// 	" -b" + speed +
+	// 	" -p" + mcu +
+	// 	" -P" + portname +
+	// 	" -D" +
+	// 	" -Uflash:w:" + filePath + ":i "
+
+	if boardOptions["upload.use_1200bps_touch"] == "true" {
+		// triggers bootloader mode
+		log.Println("Restarting in bootloader mode")
+
+		options := serial.RawOptions
+		options.BitRate = 1200
+		options.FlowControl = serial.FLOWCONTROL_RTSCTS
+		p, err := options.Open(portname)
+		if err != nil {
+			log.Panic(err)
+		}
+		time.Sleep(time.Second / 2)
+		p.Close()
+		time.Sleep(time.Second)
+	}
+
+	return (tool != ""), tool, cmdline
 }
 
 func findPortByName(portname string) (*serport, bool) {

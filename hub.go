@@ -169,6 +169,15 @@ func checkCmd(m []byte) {
 			go spErr("You did not specify a port to close")
 		}
 
+	} else if strings.HasPrefix(sl, "program") {
+
+		args := strings.Split(s, " ")
+		if len(args) > 3 {
+			go spProgram(args[1], args[2], args[3])
+		} else {
+			go spErr("You did not specify a port, a board to program and a filename")
+		}
+
 	} else if strings.HasPrefix(sl, "sendjson") {
 		// will catch sendjson
 

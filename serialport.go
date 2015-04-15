@@ -6,7 +6,9 @@ import (
 	"github.com/johnlauer/goserial"
 	"io"
 	"log"
+	"os/exec"
 	"strconv"
+	"strings"
 )
 
 type serport struct {
@@ -386,4 +388,35 @@ func spHandlerClose(p *serport) {
 	// we opened. the only thing holding up that thread is the p.reader()
 	// so if we close the reader we should get an exit
 	h.broadcastSys <- []byte("Closing serial port " + p.portConf.Name)
+}
+
+func spHandlerProgram(flasher string, cmdString string) {
+
+	s := strings.Split(cmdString, " ")
+	oscmd := exec.Command(flasher, s...)
+
+	// Stdout buffer
+	var cmdOutput bytes.Buffer
+	// Attach buffer to command
+	oscmd.Stdout = &cmdOutput
+
+	h.broadcastSys <- []byte("Start flashing with command " + cmdString)
+
+	err := oscmd.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Waiting for command to finish... %v", oscmd)
+
+	err = oscmd.Wait()
+
+	if err != nil {
+		log.Printf("Command finished with error: %v", err)
+		h.broadcastSys <- []byte("Could not program the board: " + cmdOutput.String())
+	} else {
+		log.Printf("Finished without error. Good stuff. stdout:%v", cmdOutput.String())
+		h.broadcastSys <- []byte("Flash OK!")
+		// analyze stdin
+
+	}
 }
