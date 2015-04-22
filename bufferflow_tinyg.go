@@ -113,7 +113,7 @@ func (m *RawString) UnmarshalJSON(data []byte) error {
 }
 
 type RespMsg struct {
-	R RawString `json:"r", sql:"type:json"`
+	R RawString `json:"r",sql:"type:json"`
 	F []int     `json:"f"`
 }
 
