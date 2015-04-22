@@ -3,15 +3,37 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/johnlauer/goserial"
+	//"github.com/johnlauer/goserial"
+	"github.com/facchinm/go-serial"
 	"io"
 	"log"
+	"os/exec"
+	//"runtime"
 	"strconv"
+	"strings"
 )
+
+type SerialConfig struct {
+	Name string
+	Baud int
+
+	// Size     int // 0 get translated to 8
+	// Parity   SomeNewTypeToGetCorrectDefaultOf_None
+	// StopBits SomeNewTypeToGetCorrectDefaultOf_1
+
+	// RTSFlowControl bool
+	// DTRFlowControl bool
+	// XONFlowControl bool
+
+	// CRLFTranslate bool
+	// TimeoutStuff int
+	RtsOn bool
+	DtrOn bool
+}
 
 type serport struct {
 	// The serial port connection.
-	portConf *serial.Config
+	portConf *SerialConfig
 	portIo   io.ReadWriteCloser
 
 	done chan bool // signals the end of this request
@@ -284,11 +306,16 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	if isSecondary {
 		isPrimary = false
 	}
-	conf := &serial.Config{Name: portname, Baud: baud, RtsOn: true}
-	log.Print("Created config for port")
-	log.Print(conf)
 
-	sp, err := serial.OpenPort(conf)
+	conf := &SerialConfig{Name: portname, Baud: baud, RtsOn: true}
+
+	mode := &serial.Mode{
+		BaudRate: baud,
+		Vmin:     0,
+		Vtimeout: 10,
+	}
+
+	sp, err := serial.OpenPort(portname, mode)
 	log.Print("Just tried to open port")
 	if err != nil {
 		//log.Fatal(err)
@@ -351,6 +378,7 @@ func spHandlerCloseExperimental(p *serport) {
 	//close the port
 
 	p.bufferwatcher.Close()
+	p.portIo.Close()
 	h.broadcastSys <- []byte("Bufferwatcher closed")
 	p.portIo.Close()
 	//elicit response from hardware to close out p.reader()
@@ -386,4 +414,35 @@ func spHandlerClose(p *serport) {
 	// we opened. the only thing holding up that thread is the p.reader()
 	// so if we close the reader we should get an exit
 	h.broadcastSys <- []byte("Closing serial port " + p.portConf.Name)
+}
+
+func spHandlerProgram(flasher string, cmdString []string) {
+
+	var oscmd *exec.Cmd
+	// if runtime.GOOS == "darwin" {
+	// 	sh, _ := exec.LookPath("sh")
+	// 	// prepend the flasher to run it via sh
+	// 	cmdString = append([]string{flasher}, cmdString...)
+	// 	oscmd = exec.Command(sh, cmdString...)
+	// } else {
+	oscmd = exec.Command(flasher, cmdString...)
+	// }
+
+	// Stdout buffer
+	//var cmdOutput []byte
+
+	//h.broadcastSys <- []byte("Start flashing with command " + cmdString)
+	log.Printf("Flashing with command:" + strings.Join(cmdString, " "))
+
+	cmdOutput, err := oscmd.CombinedOutput()
+
+	if err != nil {
+		log.Printf("Command finished with error: %v "+string(cmdOutput), err)
+		h.broadcastSys <- []byte("Could not program the board")
+	} else {
+		log.Printf("Finished without error. Good stuff. stdout: " + string(cmdOutput))
+		h.broadcastSys <- []byte("Flash OK!")
+		// analyze stdin
+
+	}
 }
