@@ -143,9 +143,57 @@ memstats | | Send back data on the memory usage and garbage collection performan
 broadcast string | broadcast my data | Send in this command and you will get a message reflected back to all connected endpoints. This is useful for communicating with all connected clients, i.e. in a CNC scenario is a pendant wants to ask the main workspace if there are any settings it should know about. For example send in "broadcast this is my custom cmd" and get this reflected back to all connected sockets {"Cmd":"Broadcast","Msg":"this is my custom cmd\n"}
 version | | Get the software version of SPJS that is running
 hostname | | Get the hostname of the current SPJS instance 
-program port core:architecture:name $path/to/filename/without/extension | programfromurl com3 arduino:avr:uno c:\myfiles\grbl_v0_9i_atmega328p_16mhz_115200.hex | Send a hex file to your Arduino board to program it.
-programfromurl port core:architecture:name url | programfromurl com3 arduino:avr:uno https://raw.githubusercontent.com/grbl/grbl-builds/master/builds/grbl_v0_9i_atmega328p_16mhz_115200.hex | Download a hex file from a URL and then send it to your Arduino board to program it.
+program port core:architecture:name $path/to/filename/without/extension | program com3 arduino:avr:uno c:\myfiles\grbl_v0_9i_atmega328p_16mhz_115200.hex | Send a hex file to your Arduino board to program it.
+programfromurl port core:architecture:name url | programfromurl /dev/ttyACM0 arduino:sam:due http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin | Download a hex file from a URL and then send it to your Arduino board to program it.
 
+Programming Your Arduino from SPJS
+-------
+The ability to program your board is now available within Serial Port JSON Server (SPJS). This feature was developed by the folks at Arduino because they are looking to use SPJS inside their upcoming Web IDE project. Therefore you can expect great support for this feature into the future as it will be the main way the IDE programs the boards. For folks using SPJS in other environments like ChiliPeppr, this means you'll be able to do firmware updates on your boards without much effort.
+
+There are two new commands:
+```
+program
+programfromurl
+```
+
+These commands are identical except for one parameter that specifies where the binary hex file is. With the `program` command you specify a file path. With `programfromurl` you specify a public URL.
+
+This example command will update your Arduino Due with the latest TinyG G2 firmware for your CNC machine. It will download the bin file from Github and flash it to an Arduino Due running on the ttyACM0 serial port on a Raspberry Pi 2.
+```
+programfromurl /dev/ttyACM0 arduino:sam:due http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin
+```
+
+This example will update your Arduino Uno running on a Windows computer with the latest version of Grbl from a public URL.
+```
+programfromurl com12 arduino:avr:uno https://raw.githubusercontent.com/grbl/grbl-builds/master/builds/grbl_v0_9i_atmega328p_16mhz_115200.hex
+```
+
+The 2nd parameter (which is the most confusing) of core:architecture:name model can be seen in the boards.txt file in the distribution, but here is a partial list for quick reference:
+
+* arduino:avr:uno
+* arduino:avr:yun
+* arduino:avr:diecimila
+* arduino:avr:nano
+* arduino:avr:mega
+* arduino:avr:megaADK
+* arduino:avr:leonardo
+* arduino:avr:micro
+* arduino:avr:esplora
+* arduino:avr:mini
+* arduino:avr:ethernet
+* arduino:avr:fio
+* arduino:avr:bt
+* arduino:avr:LilyPadUSB
+* arduino:avr:lilypad
+* arduino:avr:pro
+* arduino:avr:atmegang
+* arduino:avr:robotControl
+* arduino:avr:robotMotor
+* arduino:sam:arduino_due_x_dbg
+* arduino:sam:arduino_due_x
+
+
+<!--
 Garbage collection
 -------
 On slower devices like Raspberry Pis (not the new Raspberry Pi 2) it is evident that the slowness of the CPU can cause some issues. In particular, on a Tinyg so much data can flow back from the serial device that it can overwhelm the Raspberry Pi such that serial data is lost if the Pi can't process it quick enough. This usually isn't a problem until a garbage collection process is triggered by golang for SPJS. 
@@ -153,6 +201,7 @@ On slower devices like Raspberry Pis (not the new Raspberry Pi 2) it is evident 
 Garbage collection does a "stop the world" technique which on the Raspi is so slow that SPJS may be unresponsive for 5 or even 10 seconds. This is long enough that data starts spilling off the serial port buffer inside the TinyG. On faster hosts like Windows or Mac this doesn't happen. Therefore some additional tricks have been added to SPJS to try to alleviate this problem from rearing it's ugly head. 
 
 SPJS by default will start in gc=std mode. This means SPJS will simply use the default garbage collection from Golang. You could instead try gc=max. This means SPJS will forcibly garbage collect non-stop on each receive and send on the serial port. This essentially doubles or triples SPJS's CPU usage, but it reduces the chance for the stopping of the world. It is recommended to keep gc=std as the default, but you could try your own settings including trying gc=off which means all garbage collection is turned off and thus you'll eventually run out of memory. You can send in a "gc" into SPJS via the websocket to force manual garbage collection in this instance.
+-->
 
 Broadcast Command
 -------
