@@ -276,12 +276,12 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 	//b.lock.Lock()
 	if b.q.LenOfCmds() >= b.BufferMax {
 		b.SetPaused(true, 0) // b.Paused = true
-		log.Printf("It looks like the buffer is over the allowed size, so we are going to paused. Then when some incoming responses come in a check will occur to see if there's room to send this command. Pausing...")
+		log.Printf("It looks like the buffer is over the allowed size, so we are going to pause. Then when some incoming responses come in a check will occur to see if there's room to send this command. Pausing...")
 	}
 	//b.lock.Lock()
 
 	if b.GetPaused() {
-		log.Println("It appears we are being asked to pause, so we will wait on b.sem")
+		//log.Println("It appears we are being asked to pause, so we will wait on b.sem")
 		// We are being asked to pause our sending of commands
 
 		// clear all b.sem signals so when we block below, we truly block
@@ -310,7 +310,7 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 		willHandleCompleteResponse = false
 	}
 
-	log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
+	//log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
 
 	return true, willHandleCompleteResponse
 }
@@ -318,6 +318,7 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 // Serial buffer size approach
 func (b *BufferflowTinyg) OnIncomingData(data string) {
 	//log.Printf("OnIncomingData() start. data:%q\n", data)
+	//log.Printf("< %q\n", data)
 
 	// Since OnIncomingData is in the reader thread, lock so the writer
 	// thread doesn't get messed up from all the bufferarray counting we're doing
@@ -352,6 +353,7 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 	for _, element := range arrLines[:len(arrLines)-1] {
 		//log.Printf("Working on element:%v, index:%v", element, index)
 		//log.Printf("Working on element:%v, index:%v", element)
+		log.Printf("< %v", element)
 
 		//check for r:{} response indicating a gcode line has been processed
 		if b.reSlotDone.MatchString(element) {
@@ -488,7 +490,7 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 			// So we'll have to wait until the next time in here for this test to pass
 			if b.q.LenOfCmds() < b.BufferMax {
 
-				log.Printf("tinyg just completed a line of gcode and there is room in buffer so setPaused(false)\n")
+				//log.Printf("tinyg just completed a line of gcode and there is room in buffer so setPaused(false)\n")
 
 				// if we are paused, tell us to unpause cuz we have clean buffer room now
 				if b.GetPaused() {
@@ -572,18 +574,18 @@ func (b *BufferflowTinyg) ClearOutSemaphore() {
 	keepLooping := true
 	for keepLooping {
 		select {
-		case d, ok := <-b.sem:
-			log.Printf("Consuming b.sem queue to clear it before we block. ok:%v, d:%v\n", ok, string(d))
+		case _, ok := <-b.sem: // case d, ok :=
+			//log.Printf("Consuming b.sem queue to clear it before we block. ok:%v, d:%v\n", ok, string(d))
 			ctr++
 			if ok == false {
 				keepLooping = false
 			}
 		default:
 			keepLooping = false
-			log.Println("Hit default in select clause")
+			//log.Println("Hit default in select clause")
 		}
 	}
-	log.Printf("Done consuming b.sem queue so we're good to block on it now. ctr:%v\n", ctr)
+	//log.Printf("Done consuming b.sem queue so we're good to block on it now. ctr:%v\n", ctr)
 	// ok, all b.sem signals are now consumed into la-la land
 
 }
@@ -679,6 +681,7 @@ func (b *BufferflowTinyg) Pause() {
 	b.SetPaused(true, 0) //b.Paused = true
 	//b.BypassMode = false // turn off bypassmode in case it's on
 	//log.Println("Paused buffer on next BlockUntilReady() call")
+	log.Println("Paused buffer")
 }
 
 func (b *BufferflowTinyg) Unpause() {
@@ -709,7 +712,7 @@ func (b *BufferflowTinyg) Unpause() {
 			}()
 		}()
 	*/
-	log.Println("Unpaused buffer inside BlockUntilReady() call")
+	log.Println("Unpaused buffer") // inside BlockUntilReady() call")
 }
 
 func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool {
@@ -769,7 +772,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsReturnNoResponse(cmd string) bool
 	// remove comments
 	//cmd = b.reComment.ReplaceAllString(cmd, "")
 	//cmd = b.reComment2.ReplaceAllString(cmd, "")
-	log.Printf("Checking cmd:%v for no response?", cmd)
+	//log.Printf("Checking cmd:%v for no response?", cmd)
 	if match := b.reNoResponse.MatchString(cmd); match {
 		//log.Printf("Found cmd that does not get a response from TinyG. cmd:%v\n", cmd)
 		return true

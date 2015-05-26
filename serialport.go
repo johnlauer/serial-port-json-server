@@ -265,7 +265,7 @@ func (p *serport) writerNoBuf() {
 
 		// FINALLY, OF ALL THE CODE IN THIS PROJECT
 		// WE TRULY/FINALLY GET TO WRITE TO THE SERIAL PORT!
-		n2, err := p.portIo.Write([]byte(data.data))
+		_, err := p.portIo.Write([]byte(data.data)) // n2, err :=
 
 		// see if we need to send back the completeResponse
 		if data.willHandleCompleteResponse == false {
@@ -280,7 +280,7 @@ func (p *serport) writerNoBuf() {
 
 		}
 
-		log.Print("Just wrote ", n2, " bytes to serial: ", string(data.data))
+		//log.Print("Just wrote ", n2, " bytes to serial: ", string(data.data))
 		//log.Print(n2)
 		//log.Print(" bytes to serial: ")
 		//log.Print(data)

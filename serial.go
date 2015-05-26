@@ -268,7 +268,7 @@ func createCommands(wr writeRequest, id string) ([]string, []string, []string) {
 	//log.Println(wr.d)
 	//log.Print("Data:" + string(wr.d))
 	//log.Print("-----")
-	log.Printf("Got write to id:%v, port:%v, buffer:%v, data:%v", id, wr.p.portConf.Name, wr.buffer, string(wr.d))
+	//log.Printf("Got write to id:%v, port:%v, buffer:%v, data:%v", id, wr.p.portConf.Name, wr.buffer, string(wr.d))
 
 	dataCmd := string(wr.d)
 
@@ -399,7 +399,7 @@ func createCommands(wr writeRequest, id string) ([]string, []string, []string) {
 		*/
 		// increment queue counter for reporting
 		wr.p.itemsInBuffer++
-		log.Printf("itemsInBuffer:%v\n", wr.p.itemsInBuffer)
+		//log.Printf("itemsInBuffer:%v\n", wr.p.itemsInBuffer)
 
 		// push the type of this command to bufTypeArr
 		bufTypeArr = append(bufTypeArr, typeBuf)
@@ -542,7 +542,7 @@ func spClose(portname string) {
 
 func spWriteJson(arg string) {
 
-	log.Printf("spWriteJson. arg:%v\n", arg)
+	//log.Printf("spWriteJson. arg:%v\n", arg)
 
 	// remove sendjson string
 	arg = sh.reJsonTrim.ReplaceAllString(arg, "")
