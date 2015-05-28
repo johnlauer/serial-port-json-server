@@ -246,6 +246,9 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 		if boardOptions["upload.wait_for_upload_port"] == "true" {
 			ports, _ := serial.GetPortsList()
 			log.Printf("Starting endless loop for portname:%v\n", portname)
+			// TODO: we need a timeout here. if a device has 2 virtual serial ports and u try
+			// to program from the 2nd one, once device has restarted in programming mode
+			// you will never get that port again and this will just loop forever
 			for !(containsStr(ports, portname)) {
 
 				ports, _ = serial.GetPortsList()
