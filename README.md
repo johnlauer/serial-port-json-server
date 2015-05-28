@@ -143,8 +143,8 @@ memstats | | Send back data on the memory usage and garbage collection performan
 broadcast string | broadcast my data | Send in this command and you will get a message reflected back to all connected endpoints. This is useful for communicating with all connected clients, i.e. in a CNC scenario is a pendant wants to ask the main workspace if there are any settings it should know about. For example send in "broadcast this is my custom cmd" and get this reflected back to all connected sockets {"Cmd":"Broadcast","Msg":"this is my custom cmd\n"}
 version | | Get the software version of SPJS that is running
 hostname | | Get the hostname of the current SPJS instance 
-program port core:architecture:name $path/to/filename/without/extension | program com3 arduino:avr:uno c:\myfiles\grbl_v0_9i_atmega328p_16mhz_115200.hex | Send a hex file to your Arduino board to program it.
-programfromurl port core:architecture:name url | programfromurl /dev/ttyACM0 arduino:sam:due http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin | Download a hex file from a URL and then send it to your Arduino board to program it.
+program portName core:architecture:name $path/to/filename | program com3 arduino:avr:uno c:\myfiles\grbl_9i.hex | Send a hex file to your Arduino board to program it.
+programfromurl portName core:architecture:name url | programfromurl /dev/ttyACM0 arduino:sam:arduino_due_x http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin | Download a hex/bin file from a URL and then send it to your Arduino board to program it.
 
 Programming Your Arduino from SPJS
 -------
@@ -152,15 +152,15 @@ The ability to program your board is now available within Serial Port JSON Serve
 
 There are two new commands:
 ```
-program
-programfromurl
+program [portName] [core:architecture:name] [$path/to/filename]
+programfromurl [portName] [core:architecture:name] [url]
 ```
 
-These commands are identical except for one parameter that specifies where the binary hex file is. With the `program` command you specify a file path. With `programfromurl` you specify a public URL.
+These commands are identical except for one parameter that specifies where the binary hex/bin file is. With the `program` command you specify a file path. With `programfromurl` you specify a public URL.
 
 This example command will update your Arduino Due with the latest TinyG G2 firmware for your CNC machine. It will download the bin file from Github and flash it to an Arduino Due running on the ttyACM0 serial port on a Raspberry Pi 2.
 ```
-programfromurl /dev/ttyACM0 arduino:sam:due http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin
+programfromurl /dev/ttyACM0 arduino:sam:arduino_due_x http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin
 ```
 
 This example will update your Arduino Uno running on a Windows computer with the latest version of Grbl from a public URL.
