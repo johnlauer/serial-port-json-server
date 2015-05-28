@@ -113,7 +113,7 @@ func formatCmdline(cmdline string, boardOptions map[string]string) (string, bool
 
 func containsStr(s []string, e string) bool {
 	for _, a := range s {
-		if a == e {
+		if strings.ToLower(a) == strings.ToLower(e) {
 			return true
 		}
 	}
@@ -149,6 +149,11 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 			arr[0] = strings.Replace(arr[0], boardFields[2]+".", "", 1)
 			boardOptions[arr[0]] = arr[1]
 		}
+	}
+
+	if len(boardOptions) == 0 {
+		h.broadcastSys <- []byte("Board " + boardFields[2] + " is not part of " + boardFields[0] + ":" + boardFields[1])
+		return false, "", nil
 	}
 
 	boardOptions["serial.port"] = portname
@@ -232,6 +237,7 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 			log.Println(err)
 			return false, "", nil
 		}
+		log.Println("Was able to open port in 1200 baud mode")
 		//port.SetDTR(false)
 		port.Close()
 		time.Sleep(time.Second / 2)
@@ -239,7 +245,9 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 		// wait for port to reappear
 		if boardOptions["upload.wait_for_upload_port"] == "true" {
 			ports, _ := serial.GetPortsList()
+			log.Printf("Starting endless loop for portname:%v\n", portname)
 			for !(containsStr(ports, portname)) {
+
 				ports, _ = serial.GetPortsList()
 			}
 		}
@@ -261,5 +269,6 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 		}
 	}
 
+	log.Printf("Tool:%v, cmdline:%v\n", tool, cmdlineSliceOut)
 	return (tool != ""), tool, cmdlineSliceOut
 }

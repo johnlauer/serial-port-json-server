@@ -479,7 +479,7 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 				}
 
 			} else {
-				log.Printf("We should NEVER get here cuz we should have a command in the queue to dequeue when we get the r:{} response. If you see this debug stmt this is BAD!!!!")
+				log.Printf("We should RARELY get here cuz we should have a command in the queue to dequeue when we get the r:{} response. If you see this debug stmt this is one of those few instances where TinyG sent us a r:{} not in response to a command we sent.")
 			}
 
 			//if b.BufferSize < b.BufferMax {
