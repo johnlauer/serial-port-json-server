@@ -120,6 +120,25 @@ func containsStr(s []string, e string) bool {
 	return false
 }
 
+func findNewPortName(slice1 []string, slice2 []string) string {
+	m := map[string]int{}
+
+	for _, s1Val := range slice1 {
+		m[s1Val] = 1
+	}
+	for _, s2Val := range slice2 {
+		m[s2Val] = m[s2Val] + 1
+	}
+
+	for mKey, mVal := range m {
+		if mVal == 1 {
+			return mKey
+		}
+	}
+
+	return ""
+}
+
 func assembleCompilerCommand(boardname string, portname string, filePath string) (bool, string, []string) {
 
 	// get executable (self)path and use it as base for all other paths
@@ -211,15 +230,7 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 	cmdline = strings.Replace(cmdline, "\"{path}/{cmd}\"", " ", 1)
 	cmdline = strings.Replace(cmdline, "\"", "", -1)
 
-	// split the commandline in substrings and recursively replace mapped strings
-	cmdlineSlice := strings.Split(cmdline, " ")
-	var winded = true
-	for index, _ := range cmdlineSlice {
-		winded = true
-		for winded != false {
-			cmdlineSlice[index], winded = formatCmdline(cmdlineSlice[index], boardOptions)
-		}
-	}
+	initialPortName := portname
 
 	// some boards (eg. Leonardo, Yun) need a special procedure to enter bootloader
 	if boardOptions["upload.use_1200bps_touch"] == "true" {
@@ -240,19 +251,72 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 		log.Println("Was able to open port in 1200 baud mode")
 		//port.SetDTR(false)
 		port.Close()
-		time.Sleep(time.Second / 2)
+		time.Sleep(time.Second / 2.0)
+
+		timeout := false
+		go func() {
+			time.Sleep(2 * time.Second)
+			timeout = true
+		}()
+
 		// time.Sleep(time.Second / 4)
 		// wait for port to reappear
 		if boardOptions["upload.wait_for_upload_port"] == "true" {
-			ports, _ := serial.GetPortsList()
-			log.Printf("Starting endless loop for portname:%v\n", portname)
-			// TODO: we need a timeout here. if a device has 2 virtual serial ports and u try
-			// to program from the 2nd one, once device has restarted in programming mode
-			// you will never get that port again and this will just loop forever
-			for !(containsStr(ports, portname)) {
-
+			after_reset_ports, _ := serial.GetPortsList()
+			log.Println(after_reset_ports)
+			var ports []string
+			for {
 				ports, _ = serial.GetPortsList()
+				log.Println(ports)
+				time.Sleep(time.Millisecond * 200)
+				portname = findNewPortName(ports, after_reset_ports)
+				if portname != "" {
+					break
+				}
+				if timeout {
+					break
+				}
 			}
+		}
+	}
+
+	if portname == "" {
+		portname = initialPortName
+	}
+
+	// some boards (eg. TinyG) need a ctrl+x to enter bootloader
+	if boardOptions["upload.send_ctrl_x_to_enter_bootloader"] == "true" {
+		// triggers bootloader mode
+		// the portname could change in this occasion, so fail gently
+		log.Println("Sending ctrl+x to enter bootloader mode")
+
+		mode := &serial.Mode{
+			BaudRate: 115200,
+			Vmin:     1,
+			Vtimeout: 0,
+		}
+		port, err := serial.OpenPort(portname, mode)
+		if err != nil {
+			log.Println(err)
+			return false, "", nil
+		}
+		log.Println("Was able to open port in 115200 baud mode for ctrl+x send")
+
+		port.Write([]byte(string(24))) // byte value which is ascii 24, ctrl+x
+		port.Close()
+		log.Println("Sent ctrl+x and then closed port. Go ahead and upload cuz we are in bootloader mode.")
+	}
+
+	boardOptions["serial.port"] = portname
+	boardOptions["serial.port.file"] = filepath.Base(portname)
+
+	// split the commandline in substrings and recursively replace mapped strings
+	cmdlineSlice := strings.Split(cmdline, " ")
+	var winded = true
+	for index, _ := range cmdlineSlice {
+		winded = true
+		for winded != false {
+			cmdlineSlice[index], winded = formatCmdline(cmdlineSlice[index], boardOptions)
 		}
 	}
 
