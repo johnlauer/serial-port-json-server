@@ -5,7 +5,9 @@ import (
 //"time"
 )
 
-var availableBufferAlgorithms = []string{"default", "tinyg", "dummypause", "grbl"}
+var availableBufferAlgorithms = []string{"default", "tinyg", "tinygg2", "dummypause", "grbl"}
+
+//var availableBufferAlgorithms = []string{"default", "tinyg", "tinygg2", "dummypause", "grbl"}
 
 type BufferMsg struct {
 	Cmd                string
@@ -18,11 +20,13 @@ type BufferMsg struct {
 type Bufferflow interface {
 	BlockUntilReady(cmd string, id string) (bool, bool) // implement this method
 	//JustQueue(cmd string, id string) bool                     // implement this method
-	OnIncomingData(data string)                               // implement this method
-	ClearOutSemaphore()                                       // implement this method
-	BreakApartCommands(cmd string) []string                   // implement this method
-	Pause()                                                   // implement this method
-	Unpause()                                                 // implement this method
+	OnIncomingData(data string)             // implement this method
+	ClearOutSemaphore()                     // implement this method
+	BreakApartCommands(cmd string) []string // implement this method
+	Pause()                                 // implement this method
+	Unpause()                               // implement this method
+	GetManualPaused() bool
+	SetManualPaused(isPaused bool)
 	SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool    // implement this method
 	SeeIfSpecificCommandsShouldPauseBuffer(cmd string) bool   // implement this method
 	SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bool // implement this method

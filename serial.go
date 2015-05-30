@@ -223,6 +223,8 @@ func writeJson(wrj writeRequestJson) {
 	if *gcType == "max" {
 		debug.FreeOSMemory()
 	}
+
+	log.Println("Done with writeJson method")
 }
 
 func write(wr writeRequest, id string) {
@@ -356,7 +358,8 @@ func createCommands(wr writeRequest, id string) ([]string, []string, []string) {
 		// the buffer. this means we'll trigger a BlockUntilReady() block
 		pauseBuf := wr.p.bufferwatcher.SeeIfSpecificCommandsShouldPauseBuffer(cmd)
 		if pauseBuf {
-			log.Printf("We need to pause our internal buffer.\n")
+			log.Printf("We need to manually pause our internal buffer.\n")
+			wr.p.bufferwatcher.SetManualPaused(true)
 			wr.p.bufferwatcher.Pause()
 		}
 
@@ -365,6 +368,7 @@ func createCommands(wr writeRequest, id string) ([]string, []string, []string) {
 		unpauseBuf := wr.p.bufferwatcher.SeeIfSpecificCommandsShouldUnpauseBuffer(cmd)
 		if unpauseBuf {
 			log.Printf("We need to unpause our internal buffer.\n")
+			wr.p.bufferwatcher.SetManualPaused(false)
 			wr.p.bufferwatcher.Unpause()
 		}
 

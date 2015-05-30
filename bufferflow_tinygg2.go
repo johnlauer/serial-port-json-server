@@ -8,16 +8,17 @@ import (
 	"strings"
 	"sync"
 	//"time"
-	"errors"
+	//"errors"
 	"fmt"
 	"runtime/debug"
 	"time"
 )
 
-type BufferflowTinyg struct {
-	Name   string
-	Port   string
-	Paused bool
+type BufferflowTinygG2 struct {
+	Name         string
+	Port         string
+	Paused       bool // paused due to flow control, i.e. there's no more room in device buffer
+	ManualPaused bool // indicates user hard paused the buffer on their own, i.e. not from flow control
 	//StopSending     int
 	//StartSending    int
 	//PauseOnEachSend time.Duration // Amount of milliseconds to pause on each send to give TinyG time to send us a qr report
@@ -60,76 +61,19 @@ type BufferflowTinyg struct {
 	// use thread locking for b.Paused
 	lock *sync.Mutex
 
+	// use thread locking for b.ManualPaused
+	manualLock *sync.Mutex
+
 	// use more thread locking for b.semLock
 	semLock *sync.Mutex
 }
 
-type GcodeCmd struct {
-	Cmd string
-	Id  string
-}
-
-type BufFlowCmd struct {
-	Cmd                          string
-	Gcode                        string
-	Resp                         string
-	Id                           string
-	HowMuchWeThinkWeShouldRemove int
-	HowMuchTinyTellsUsToRemove   int
-	IsMatchOnBufDecreaseCnt      bool
-	IsErr                        bool
-	Err                          string
-	//TotalInBufPerSpjs            int
-	//TotalInBufPerTinyG           int
-}
-
-type BufFlowRx struct {
-	Cmd                string
-	Resp               string
-	IsMatchOnTotalBuf  bool
-	IsErr              bool
-	Err                string
-	TotalInBufPerSpjs  int
-	TotalInBufPerTinyG int
-}
-
-// RawString is a raw encoded JSON object.
-// It implements Marshaler and Unmarshaler and can
-// be used to delay JSON decoding or precompute a JSON encoding.
-type RawString string
-
-// MarshalJSON returns *m as the JSON encoding of m.
-func (m *RawString) MarshalJSON() ([]byte, error) {
-	return []byte(*m), nil
-}
-
-// UnmarshalJSON sets *m to a copy of data.
-func (m *RawString) UnmarshalJSON(data []byte) error {
-	if m == nil {
-		return errors.New("RawString: UnmarshalJSON on nil pointer")
-	}
-	*m += RawString(data)
-	return nil
-}
-
-type RespMsg struct {
-	R RawString `json:"r",sql:"type:json"`
-	F []int     `json:"f"`
-}
-
-type RespRxMsg struct {
-	R RxMsg `json:"r"`
-	F []int `json:"f"`
-}
-
-type RxMsg struct {
-	Rx int `json:"rx"`
-}
-
-func (b *BufferflowTinyg) Init() {
+func (b *BufferflowTinygG2) Init() {
 
 	b.Paused = false
+	b.ManualPaused = false
 	b.lock = &sync.Mutex{}
+	b.manualLock = &sync.Mutex{}
 	b.semLock = &sync.Mutex{}
 	//b.SetPaused(false, 2)
 
@@ -153,7 +97,7 @@ func (b *BufferflowTinyg) Init() {
 	/* End Slot Approach Items */
 
 	/* Start Buffer Size Approach Items */
-	b.BufferMax = 20000 //max buffer size 254 bytes available
+	b.BufferMax = 5000 //max buffer size 254 bytes available
 	//b.BufferSize = 0  //initialize buffer at zero bytes
 	b.q = NewQueue()
 	//b.lock = sync.Mutex
@@ -235,7 +179,7 @@ func (b *BufferflowTinyg) Init() {
 }
 
 // Serial buffer size approach
-func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
+func (b *BufferflowTinygG2) BlockUntilReady(cmd string, id string) (bool, bool) {
 	log.Printf("BlockUntilReady(cmd:%v, id:%v) start\n", cmd, id)
 
 	// Since BlockUntilReady is in the writer thread, lock so the reader
@@ -316,7 +260,7 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 }
 
 // Serial buffer size approach
-func (b *BufferflowTinyg) OnIncomingData(data string) {
+func (b *BufferflowTinygG2) OnIncomingData(data string) {
 	//log.Printf("OnIncomingData() start. data:%q\n", data)
 	//log.Printf("< %q\n", data)
 
@@ -494,7 +438,21 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 
 				// if we are paused, tell us to unpause cuz we have clean buffer room now
 				if b.GetPaused() {
-					b.SetPaused(false, 1) //set paused to false first, then release the hold on the buffer
+
+					// we are paused, but we can't just go unpause ourself, because we may
+					// be manually paused. this means we have to do a double-check here
+					// and not just go unpausing ourself just cuz we think there's room in the buffer.
+					// this is because we could have just sent a ! to the tinyg. we may still
+					// get back some random r:{} after the ! was sent, and that would mean we think
+					// we can go sending more data, but really we can't cuz we were HARD Manually paused
+					if b.GetManualPaused() == false {
+
+						// we are not in a manual pause state, that means we can go ahead
+						// and unpause ourselves
+						b.SetPaused(false, 1) //set paused to false first, then release the hold on the buffer
+					} else {
+						log.Println("We just got incoming r:{} so we could unpause, but since manual paused we will ignore until next time a r:{} comes in to unpause")
+					}
 				}
 
 				/*
@@ -568,7 +526,7 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 }
 
 // Clean out b.sem so it can truly block
-func (b *BufferflowTinyg) ClearOutSemaphore() {
+func (b *BufferflowTinygG2) ClearOutSemaphore() {
 	ctr := 0
 
 	keepLooping := true
@@ -593,7 +551,7 @@ func (b *BufferflowTinyg) ClearOutSemaphore() {
 // break commands into individual commands
 // so, for example, break on newlines to separate commands
 // or, in the case of ~% break those onto separate commands
-func (b *BufferflowTinyg) BreakApartCommands(cmd string) []string {
+func (b *BufferflowTinygG2) BreakApartCommands(cmd string) []string {
 	// add newline after !~%
 	reSingle := regexp.MustCompile("([!~%])")
 	cmd = reSingle.ReplaceAllString(cmd, "$1\n")
@@ -672,7 +630,7 @@ func (b *BufferflowTinyg) BreakApartCommands(cmd string) []string {
 	return newFinalCmds
 }
 
-func (b *BufferflowTinyg) Pause() {
+func (b *BufferflowTinygG2) Pause() {
 
 	// Since we're tweaking b.Paused lock all threads
 	//b.lock.Lock()
@@ -684,7 +642,7 @@ func (b *BufferflowTinyg) Pause() {
 	log.Println("Paused buffer")
 }
 
-func (b *BufferflowTinyg) Unpause() {
+func (b *BufferflowTinygG2) Unpause() {
 
 	// Since we're tweaking b.Paused lock all threads
 	//b.lock.Lock()
@@ -715,7 +673,7 @@ func (b *BufferflowTinyg) Unpause() {
 	log.Println("Unpaused buffer") // inside BlockUntilReady() call")
 }
 
-func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool {
+func (b *BufferflowTinygG2) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool {
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -726,7 +684,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool
 	return false
 }
 
-func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) bool {
+func (b *BufferflowTinygG2) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) bool {
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -737,7 +695,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) boo
 	return false
 }
 
-func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bool {
+func (b *BufferflowTinygG2) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bool {
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -748,7 +706,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) b
 	return false
 }
 
-func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool {
+func (b *BufferflowTinygG2) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool {
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -768,7 +726,7 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool
 	return false
 }
 
-func (b *BufferflowTinyg) SeeIfSpecificCommandsReturnNoResponse(cmd string) bool {
+func (b *BufferflowTinygG2) SeeIfSpecificCommandsReturnNoResponse(cmd string) bool {
 	// remove comments
 	//cmd = b.reComment.ReplaceAllString(cmd, "")
 	//cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -780,25 +738,10 @@ func (b *BufferflowTinyg) SeeIfSpecificCommandsReturnNoResponse(cmd string) bool
 	return false
 }
 
-/*
-func (b *BufferflowTinyg) RewriteCmd(cmd string) string {
-	// remove comments from cmd. why bother sending them to tinyg and wasting
-	// precious serial buffer?
-	cmd = b.reComment.ReplaceAllString(cmd, "")
-	cmd = b.reComment2.ReplaceAllString(cmd, "")
-	// if cmd is $, ?, $x=1, etc then rewrap in json
-	if match, _ := regexp.MatchString("^[$?]", cmd); match {
-		log.Printf("Found cmd that should be wrapped in json. cmd:%v\n", cmd)
-
-	}
-	return cmd
-}
-*/
-
 // This is called if user wiped entire buffer of gcode commands queued up
 // which is up to 25,000 of them. So, we need to release the OnBlockUntilReady()
 // in a way where the command will not get executed, so send unblockType of 2
-func (b *BufferflowTinyg) ReleaseLock() {
+func (b *BufferflowTinygG2) ReleaseLock() {
 	log.Println("Lock being released in TinyG buffer")
 
 	b.q.Delete()
@@ -836,7 +779,7 @@ func (b *BufferflowTinyg) ReleaseLock() {
 	*/
 }
 
-func (b *BufferflowTinyg) IsBufferGloballySendingBackIncomingData() bool {
+func (b *BufferflowTinygG2) IsBufferGloballySendingBackIncomingData() bool {
 	// we want to send back incoming data as per line data
 	// rather than having the default spjs implemenation that sends back data
 	// as it sees it. the reason is that we were getting packets out of order
@@ -852,7 +795,7 @@ func (b *BufferflowTinyg) IsBufferGloballySendingBackIncomingData() bool {
 //Use this function to open a connection, write directly to serial port and close connection.
 //This is used for sending query requests outside of the normal buffered operations that will pause to wait for room in the grbl buffer
 //'?' is asynchronous to the normal buffer load and does not need to be paused when buffer full
-func (b *BufferflowTinyg) rxQueryLoop(p *serport) {
+func (b *BufferflowTinygG2) rxQueryLoop(p *serport) {
 	b.parent_serport = p //make note of this port for use in clearing the buffer later, on error.
 	ticker := time.NewTicker(5000 * time.Millisecond)
 	b.quit = make(chan int)
@@ -882,7 +825,7 @@ func (b *BufferflowTinyg) rxQueryLoop(p *serport) {
 	}()
 }
 
-func (b *BufferflowTinyg) Close() {
+func (b *BufferflowTinygG2) Close() {
 	//stop the rx query loop when the serial port is closed off.
 	log.Println("Stopping the RX query loop")
 	b.ReleaseLock()
@@ -894,7 +837,7 @@ func (b *BufferflowTinyg) Close() {
 
 //	Gets the paused state of this buffer
 //	go-routine safe.
-func (b *BufferflowTinyg) GetPaused() bool {
+func (b *BufferflowTinygG2) GetPaused() bool {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	return b.Paused
@@ -902,7 +845,7 @@ func (b *BufferflowTinyg) GetPaused() bool {
 
 //	Sets the paused state of this buffer
 //	go-routine safe.
-func (b *BufferflowTinyg) SetPaused(isPaused bool, semRelease int) {
+func (b *BufferflowTinygG2) SetPaused(isPaused bool, semRelease int) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	b.Paused = isPaused
@@ -933,9 +876,18 @@ func (b *BufferflowTinyg) SetPaused(isPaused bool, semRelease int) {
 	//}()
 }
 
-func (b *BufferflowTinyg) GetManualPaused() bool {
-	return false
+//	Gets the manual paused state of this buffer
+//	go-routine safe.
+func (b *BufferflowTinygG2) GetManualPaused() bool {
+	b.manualLock.Lock()
+	defer b.manualLock.Unlock()
+	return b.ManualPaused
 }
 
-func (b *BufferflowTinyg) SetManualPaused(isPaused bool) {
+//	Sets the manual paused state of this buffer
+//	go-routine safe.
+func (b *BufferflowTinygG2) SetManualPaused(isPaused bool) {
+	b.manualLock.Lock()
+	defer b.manualLock.Unlock()
+	b.ManualPaused = isPaused
 }

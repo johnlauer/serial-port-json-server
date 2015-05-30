@@ -237,7 +237,7 @@ func (p *serport) writerNoBuf() {
 	// sees something come in
 	for data := range p.sendNoBuf {
 
-		//log.Printf("Got p.sendNoBuf. data:%v, id:%v\n", string(data.data), string(data.id))
+		log.Printf("Got p.sendNoBuf. data:%v, id:%v\n", string(data.data), string(data.id))
 
 		// if we get here, we were able to write successfully
 		// to the serial port because it blocks until it can write
@@ -345,6 +345,12 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	if buftype == "tinyg" {
 
 		bw := &BufferflowTinyg{Name: "tinyg", parent_serport: p}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
+	} else if buftype == "tinygg2" {
+
+		bw := &BufferflowTinygG2{Name: "tinygg2", parent_serport: p}
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
