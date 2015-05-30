@@ -19,8 +19,14 @@ import (
 func spProgramFromUrl(portname string, boardname string, url string) {
 	mapB, _ := json.Marshal(map[string]string{"ProgrammerStatus": "DownloadStart", "Url": url})
 	h.broadcastSys <- mapB
+
+	startDownloadProgress()
+
 	filename, err := downloadFromUrl(url)
-	mapB, _ = json.Marshal(map[string]string{"ProgrammerStatus": "DownloadDone", "Filename": filename, "Url": url})
+
+	endDownloadProgress()
+
+	mapB, _ = json.Marshal(map[string]string{"Filename": filename, "Url": url, "ProgrammerStatus": "DownloadDone"})
 	h.broadcastSys <- mapB
 
 	if err != nil {
@@ -47,9 +53,16 @@ func spProgram(portname string, boardname string, filePath string) {
 	}
 }
 
+var oscmd *exec.Cmd
+
 func spHandlerProgram(flasher string, cmdString []string) {
 
-	var oscmd *exec.Cmd
+	//h.broadcastSys <- []byte("Start flashing with command " + cmdString)
+	log.Printf("Flashing with command:" + strings.Join(cmdString, " "))
+	mapD := map[string]string{"ProgrammerStatus": "Starting", "Cmd": strings.Join(cmdString, " ")}
+	mapB, _ := json.Marshal(mapD)
+	h.broadcastSys <- mapB
+
 	// if runtime.GOOS == "darwin" {
 	// 	sh, _ := exec.LookPath("sh")
 	// 	// prepend the flasher to run it via sh
@@ -62,13 +75,14 @@ func spHandlerProgram(flasher string, cmdString []string) {
 	// Stdout buffer
 	//var cmdOutput []byte
 
-	//h.broadcastSys <- []byte("Start flashing with command " + cmdString)
-	log.Printf("Flashing with command:" + strings.Join(cmdString, " "))
-	mapD := map[string]string{"ProgrammerStatus": "Starting", "Cmd": strings.Join(cmdString, " ")}
-	mapB, _ := json.Marshal(mapD)
-	h.broadcastSys <- mapB
+	// start sending back signals to the browser as the programmer runs
+	// just so user sees that things are chugging along
+	startProgress()
 
+	// will block here until results are done
 	cmdOutput, err := oscmd.CombinedOutput()
+
+	endProgress()
 
 	if err != nil {
 		log.Printf("Command finished with error: %v "+string(cmdOutput), err)
@@ -85,6 +99,87 @@ func spHandlerProgram(flasher string, cmdString []string) {
 		// analyze stdin
 
 	}
+}
+
+func spHandlerProgramKill() {
+
+	// Kill the process if there is one running
+	if oscmd != nil && oscmd.Process.Pid > 0 {
+		h.broadcastSys <- []byte("{\"ProgrammerStatus\": \"PreKilled\", \"Pid\": " + strconv.Itoa(oscmd.Process.Pid) + ", \"ProcessState\": \"" + oscmd.ProcessState.String() + "\"}")
+		oscmd.Process.Kill()
+		h.broadcastSys <- []byte("{\"ProgrammerStatus\": \"Killed\", \"Pid\": " + strconv.Itoa(oscmd.Process.Pid) + ", \"ProcessState\": \"" + oscmd.ProcessState.String() + "\"}")
+
+	} else {
+		if oscmd != nil {
+			h.broadcastSys <- []byte("{\"ProgrammerStatus\": \"KilledError\", \"Msg\": \"No current process\", \"Pid\": " + strconv.Itoa(oscmd.Process.Pid) + ", \"ProcessState\": \"" + oscmd.ProcessState.String() + "\"}")
+		} else {
+			h.broadcastSys <- []byte("{\"ProgrammerStatus\": \"KilledError\", \"Msg\": \"No current process\"}")
+		}
+	}
+}
+
+// send back pseudo-status to browser while programming in progress
+// so user doesn't think it's dead
+// this is not multi-threaded, but will work for now since
+// this is just a nice-to-have informational progress
+var inProgress bool
+
+type ProgressState struct {
+	ProgrammerStatus string
+	Duration         int
+	Pid              int
+	ProcessState     string
+}
+
+func startProgress() {
+	inProgress = true
+	go func() {
+		duration := 0
+		for {
+			time.Sleep(1 * time.Second)
+			duration++
+			if inProgress == false {
+				break
+			}
+			progmsg := ProgressState{
+				"Progress",
+				duration,
+				oscmd.Process.Pid,
+				oscmd.ProcessState.String(),
+			}
+			bm, _ := json.Marshal(progmsg)
+			h.broadcastSys <- []byte(bm)
+		}
+	}()
+}
+
+func endProgress() {
+	inProgress = false
+}
+
+// send back pseudo-status to browser while programming in progress
+// so user doesn't think it's dead
+// this is not multi-threaded, but will work for now since
+// this is just a nice-to-have informational progress
+var inDownloadProgress bool
+
+func startDownloadProgress() {
+	inDownloadProgress = true
+	go func() {
+		duration := 0
+		for {
+			time.Sleep(1 * time.Second)
+			duration++
+			h.broadcastSys <- []byte("{\"ProgrammerStatus\": \"DownloadProgress\", \"Duration\": " + strconv.Itoa(duration) + "}")
+			if inDownloadProgress == false {
+				break
+			}
+		}
+	}()
+}
+
+func endDownloadProgress() {
+	inDownloadProgress = false
 }
 
 func formatCmdline(cmdline string, boardOptions map[string]string) (string, bool) {
@@ -152,8 +247,12 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 	tempPath := (filepath.Dir(execPath) + "/" + boardFields[0] + "/hardware/" + boardFields[1] + "/boards.txt")
 	file, err := os.Open(tempPath)
 	if err != nil {
-		h.broadcastSys <- []byte("Could not find board: " + boardname)
+		//h.broadcastSys <- []byte("Could not find board: " + boardname)
 		log.Println("Error:", err)
+		mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": "Could not find board: " + boardname}
+		mapB, _ := json.Marshal(mapD)
+		h.broadcastSys <- mapB
+
 		return false, "", nil
 	}
 	scanner := bufio.NewScanner(file)
@@ -171,7 +270,11 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 	}
 
 	if len(boardOptions) == 0 {
-		h.broadcastSys <- []byte("Board " + boardFields[2] + " is not part of " + boardFields[0] + ":" + boardFields[1])
+		errmsg := "Board " + boardFields[2] + " is not part of " + boardFields[0] + ":" + boardFields[1]
+		mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": errmsg}
+		mapB, _ := json.Marshal(mapD)
+		h.broadcastSys <- mapB
+
 		return false, "", nil
 	}
 
@@ -190,8 +293,11 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 	tempPath = (filepath.Dir(execPath) + "/" + boardFields[0] + "/hardware/" + boardFields[1] + "/platform.txt")
 	file, err = os.Open(tempPath)
 	if err != nil {
-		h.broadcastSys <- []byte("Could not find board: " + boardname)
+		errmsg := "Could not find board: " + boardname
 		log.Println("Error:", err)
+		mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": errmsg}
+		mapB, _ := json.Marshal(mapD)
+		h.broadcastSys <- mapB
 		return false, "", nil
 	}
 	scanner = bufio.NewScanner(file)
@@ -217,8 +323,11 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 	version := uploadOptions["runtime.tools."+tool+".version"]
 	path := (filepath.Dir(execPath) + "/" + boardFields[0] + "/tools/" + tool + "/" + version)
 	if err != nil {
-		h.broadcastSys <- []byte("Could not find board: " + boardname)
+		errmsg := "Could not find board: " + boardname
 		log.Println("Error:", err)
+		mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": errmsg}
+		mapB, _ := json.Marshal(mapD)
+		h.broadcastSys <- mapB
 		return false, "", nil
 	}
 
@@ -246,6 +355,9 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 		port, err := serial.OpenPort(portname, mode)
 		if err != nil {
 			log.Println(err)
+			mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": err.Error()}
+			mapB, _ := json.Marshal(mapD)
+			h.broadcastSys <- mapB
 			return false, "", nil
 		}
 		log.Println("Was able to open port in 1200 baud mode")
@@ -298,6 +410,9 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 		port, err := serial.OpenPort(portname, mode)
 		if err != nil {
 			log.Println(err)
+			mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": err.Error()}
+			mapB, _ := json.Marshal(mapD)
+			h.broadcastSys <- mapB
 			return false, "", nil
 		}
 		log.Println("Was able to open port in 115200 baud mode for ctrl+x send")
