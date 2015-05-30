@@ -87,3 +87,10 @@ func (b *BufferflowDummypause) IsBufferGloballySendingBackIncomingData() bool {
 
 func (b *BufferflowDummypause) Close() {
 }
+
+func (b *BufferflowDummypause) GetManualPaused() bool {
+	return false
+}
+
+func (b *BufferflowDummypause) SetManualPaused(isPaused bool) {
+}

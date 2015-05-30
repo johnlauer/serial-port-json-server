@@ -72,3 +72,10 @@ func (b *BufferflowDefault) IsBufferGloballySendingBackIncomingData() bool {
 
 func (b *BufferflowDefault) Close() {
 }
+
+func (b *BufferflowDefault) GetManualPaused() bool {
+	return false
+}
+
+func (b *BufferflowDefault) SetManualPaused(isPaused bool) {
+}
