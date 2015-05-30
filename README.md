@@ -168,7 +168,7 @@ This example will update your Arduino Uno running on a Windows computer with the
 programfromurl com12 arduino:avr:uno https://raw.githubusercontent.com/grbl/grbl-builds/master/builds/grbl_v0_9i_atmega328p_16mhz_115200.hex
 ```
 
-The 2nd parameter (which is the most confusing) of core:architecture:name model can be seen in the boards.txt file in the distribution, but here is a partial list for quick reference:
+The 2nd parameter of core:architecture:name specifies which board you're trying to program so that SPJS can figure out what programmer and parameters should be used to send the hex/bin file up to your device. The choices can be seen in the boards.txt file in the distribution, but here is a partial list for quick reference:
 
 * arduino:avr:uno
 * arduino:avr:yun
@@ -191,7 +191,7 @@ The 2nd parameter (which is the most confusing) of core:architecture:name model 
 * arduino:avr:robotMotor
 * arduino:sam:arduino_due_x_dbg
 * arduino:sam:arduino_due_x
-
+* arduino:avr:tinyg (TinyG v7/v8. For G2 use due_x_dbg.)
 
 <!--
 Garbage collection
