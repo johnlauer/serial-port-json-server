@@ -277,7 +277,7 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 			// we should be able to split on newline to each file
 			filesTty := strings.Split(string(cmdOutput.Bytes()), "\n")
 		*/
-		filesTty := findDirs(directory, "^tty(A|U)*")
+		filesTty := findDirs(directory, "^tty(A|U).*")
 
 		// generate a unique list of tty ports below
 		//var ttyPorts []string
