@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"log"
+	"path/filepath"
 	"regexp"
 	"sort"
 )
@@ -88,6 +89,7 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 
 	// LOOK FOR THE WORD MANUFACTURER
 	// search /sys folder
+	/*
 	oscmd := exec.Command("find", "/sys/", "-name", "manufacturer", "-print") //, "2>", "/dev/null")
 	// Stdout buffer
 	cmdOutput := &bytes.Buffer{}
@@ -104,7 +106,7 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 	errwait := oscmd.Wait()
 
 	if errwait != nil {
-		log.Printf("Command finished with error: %v", errwait)
+		log.Printf("Command finished with error: %v, cmd was:%v, stdout was:%v", errwait, oscmd, string(cmdOutput.Bytes()))
 		return nil, err
 	}
 
@@ -116,8 +118,11 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 	/*if len(files) == 0 {
 		return nil, err
 	}*/
+	*/
+	files := findFiles("/sys", "^manufacturer")
 
 	// LOOK FOR THE WORD PRODUCT
+	/*
 	oscmd2 := exec.Command("find", "/sys/", "-name", "product", "-print") //, "2>", "/dev/null")
 	cmdOutput2 := &bytes.Buffer{}
 	oscmd2.Stdout = cmdOutput2
@@ -126,7 +131,9 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 	oscmd2.Wait()
 
 	filesFromProduct := strings.Split(string(cmdOutput2.Bytes()), "\n")
-
+	*/
+	filesFromProduct := findFiles("/sys", "^product")
+	
 	// append both arrays so we have one (then we'll have to de-dupe)
 	files = append(files, filesFromProduct...)
 
@@ -332,6 +339,21 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 
 	log.Printf("Final port list: %v", list)
 	return list, err
+}
+
+func findFiles(rootpath string, regexpstr string) []string {
+
+	var matchedFiles []string
+	re := regexp.MustCompile(regexpstr)
+	numScanned := 0
+	filepath.Walk(rootpath, func(path string, fi os.FileInfo, _ error) error {
+		numScanned++
+
+		if re.MatchString(path) == true {
+			matchedFiles = append(matchedFiles, path)
+		}
+	})
+	log.Printf("Rootpath:%v, Numscanned:%v\nMatchedfiles:\n%v", rootpath, numScanned, strings.Join(matchedFiles, "\n"))
 }
 
 // ByAge implements sort.Interface for []Person based on
