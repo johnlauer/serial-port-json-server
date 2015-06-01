@@ -49,7 +49,7 @@ func spProgram(portname string, boardname string, filePath string) {
 	if isFound {
 		spHandlerProgram(flasher, mycmd)
 	} else {
-		spErr("We could not find the serial port " + portname + " or the board " + boardname + "  that you were trying to program.")
+		spErr("We could not find the serial port " + portname + " or the board " + boardname + "  that you were trying to program. It is also possible your serial port is locked by another app and thus we can't grab it to use for programming. Make sure all other apps that may be trying to access this serial port are disconnected or exited.")
 	}
 }
 
@@ -87,7 +87,7 @@ func spHandlerProgram(flasher string, cmdString []string) {
 	if err != nil {
 		log.Printf("Command finished with error: %v "+string(cmdOutput), err)
 		h.broadcastSys <- []byte("Could not program the board")
-		mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": "Could not program the board", "Output": string(cmdOutput)}
+		mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": "Could not program the board. It is also possible your serial port is locked by another app and thus we can't grab it to use for programming. Make sure all other apps that may be trying to access this serial port are disconnected or exited.", "Output": string(cmdOutput)}
 		mapB, _ := json.Marshal(mapD)
 		h.broadcastSys <- mapB
 	} else {
