@@ -20,7 +20,7 @@ var (
 	serialListWindowsWg sync.WaitGroup
 )
 
-func getList() ([]OsSerialPort, os.SyscallError) {
+func getMetaList() ([]OsSerialPort, os.SyscallError) {
 	// use a queue to do this to avoid conflicts
 	// we've been getting crashes when this getList is requested
 	// too many times too fast. i think it's something to do with

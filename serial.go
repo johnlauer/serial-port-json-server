@@ -452,6 +452,11 @@ func spList() {
 	n := len(list)
 	spl := SpPortList{make([]SpPortItem, n, n)}
 
+	// now try to get the meta data for the ports. keep in mind this may fail
+	// to give us anything
+	metaports, err := GetMetaList()
+	log.Printf("Got metadata on ports:%v", metaports)
+
 	ctr := 0
 	for _, item := range list {
 
@@ -482,6 +487,9 @@ func spList() {
 			Ver: versionFloat,
 		}
 
+		// if we have meta data for this port, use it
+		setMetaData(&spl.SerialPorts[ctr], metaports)
+
 		// figure out if port is open
 		//spl.SerialPorts[ctr].IsOpen = false
 		myport, isFound := findPortByName(item.Name)
@@ -509,6 +517,21 @@ func spList() {
 	}
 }
 
+func setMetaData(pi *SpPortItem, metadata []OsSerialPort) {
+	// loop thru metadata and see if this port (pi) is in the list
+	for _, mi := range metadata {
+		if pi.Name == mi.Name {
+			// we have a winner
+			pi.Friendly = mi.FriendlyName
+			pi.DeviceClass = mi.DeviceClass
+			pi.SerialNumber = mi.SerialNumber
+			pi.RelatedNames = mi.RelatedNames
+			break
+		}
+	}
+}
+
+/*
 func spListOld() {
 	ls := "{\"serialports\" : [\n"
 	list, _ := getList()
@@ -519,7 +542,7 @@ func spListOld() {
 	ls += "}\n"
 	ls += "]}\n"
 	h.broadcastSys <- []byte(ls)
-}
+}*/
 
 func spErr(err string) {
 	log.Println("Sending err back: ", err)

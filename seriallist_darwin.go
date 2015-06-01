@@ -13,7 +13,7 @@ import (
 	"io/ioutil"
 )
 
-func getList() ([]OsSerialPort, os.SyscallError) {
+func getMetaList() ([]OsSerialPort, os.SyscallError) {
 	//return getListViaWmiPnpEntity()
 	return getListViaTtyList()
 }
@@ -56,4 +56,9 @@ func getListViaTtyList() ([]OsSerialPort, os.SyscallError) {
 	*/
 
 	return list[0:ctr], err
+}
+
+func GetFriendlyName(portname string) string {
+	log.Println("GetFriendlyName from base class")
+	return ""
 }
