@@ -97,7 +97,7 @@ func (b *BufferflowTinygG2) Init() {
 	/* End Slot Approach Items */
 
 	/* Start Buffer Size Approach Items */
-	b.BufferMax = 5000 //max buffer size 254 bytes available
+	b.BufferMax = 100 //max buffer size 254 bytes available
 	//b.BufferSize = 0  //initialize buffer at zero bytes
 	b.q = NewQueue()
 	//b.lock = sync.Mutex
