@@ -124,6 +124,8 @@ func main() {
 
 	// list serial ports
 	portList, _ := GetList()
+	metaports, _ := GetMetaList()
+
 	/*if errSys != nil {
 		log.Printf("Got system error trying to retrieve serial port list. Err:%v\n", errSys)
 		log.Fatal("Exiting")
@@ -133,6 +135,8 @@ func main() {
 		log.Println("\tThere are no serial ports to list.")
 	}
 	for _, element := range portList {
+		// if we have meta data for this port, use it
+		setMetaDataForOsSerialPort(&element, metaports)
 		log.Printf("\t%v\n", element)
 
 	}
