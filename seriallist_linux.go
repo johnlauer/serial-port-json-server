@@ -19,7 +19,7 @@ import (
 	"sort"
 )
 
-func getList() ([]OsSerialPort, os.SyscallError) {
+func getMetaList() ([]OsSerialPort, os.SyscallError) {
 
 	//return getListViaTtyList()
 	return getAllPortsViaManufacturer()

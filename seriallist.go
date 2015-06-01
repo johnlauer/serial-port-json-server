@@ -56,3 +56,16 @@ func GetList() ([]OsSerialPort, error) {
 
 	return arrPorts, err
 }
+
+func GetMetaList() ([]OsSerialPort, error) {
+	metaportlist, err := getMetaList()
+	if err.Err != nil {
+		return nil, err.Err
+	}
+	return metaportlist, err.Err
+}
+
+func GetFriendlyName(portname string) string {
+	log.Println("GetFriendlyName from base class")
+	return ""
+}
