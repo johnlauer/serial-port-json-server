@@ -57,8 +57,3 @@ func getListViaTtyList() ([]OsSerialPort, os.SyscallError) {
 
 	return list[0:ctr], err
 }
-
-func GetFriendlyName(portname string) string {
-	log.Println("GetFriendlyName from base class")
-	return ""
-}
