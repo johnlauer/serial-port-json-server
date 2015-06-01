@@ -15,6 +15,7 @@ import (
 	"os"
 	//"net/http/pprof"
 	//"runtime"
+	"io"
 	"runtime/debug"
 	"text/template"
 	"time"
@@ -25,8 +26,8 @@ var (
 	versionFloat = float32(1.82)
 	addr         = flag.String("addr", ":8989", "http service address")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
-	verbose = flag.Bool("v", true, "show debug logging")
-	//verbose = flag.Bool("v", false, "show debug logging")
+	//verbose = flag.Bool("v", true, "show debug logging")
+	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
 
@@ -122,6 +123,11 @@ func main() {
 		log.Printf("You specified a serial port regular expression filter: %v\n", *regExpFilter)
 	}
 
+	if !*verbose {
+		log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
+		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
+	}
+
 	// list serial ports
 	portList, _ := GetList()
 	metaports, _ := GetMetaList()
@@ -130,21 +136,24 @@ func main() {
 		log.Printf("Got system error trying to retrieve serial port list. Err:%v\n", errSys)
 		log.Fatal("Exiting")
 	}*/
-	log.Println("Your serial ports:")
-	if len(portList) == 0 {
-		log.Println("\tThere are no serial ports to list.")
-	}
-	for _, element := range portList {
-		// if we have meta data for this port, use it
-		setMetaDataForOsSerialPort(&element, metaports)
-		log.Printf("\t%v\n", element)
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		log.SetOutput(io.Writer(os.Stdout))
+		log.Println("Your serial ports:")
+		if len(portList) == 0 {
+			log.Println("\tThere are no serial ports to list.")
+		}
+		for _, element := range portList {
+			// if we have meta data for this port, use it
+			setMetaDataForOsSerialPort(&element, metaports)
+			log.Printf("\t%v\n", element)
 
-	}
-
-	if !*verbose {
-		log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
-		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
-	}
+		}
+		if !*verbose {
+			//log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
+			log.SetOutput(new(NullWriter)) //route all logging to nullwriter
+		}
+	}()
 
 	// launch the hub routine which is the singleton for the websocket server
 	go h.run()
