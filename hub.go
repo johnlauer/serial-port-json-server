@@ -134,7 +134,8 @@ func checkCmd(m []byte) {
 			s = strings.Replace(s, "open secondary", "open", 1)
 		}
 
-		args := strings.Split(s, " ")
+		// remove newline
+		args := strings.Split(strings.TrimSpace(s), " ")
 		if len(args) < 3 {
 			go spErr("You did not specify a port and baud rate in your open cmd")
 			return
@@ -162,7 +163,11 @@ func checkCmd(m []byte) {
 
 	} else if strings.HasPrefix(sl, "close") {
 
-		args := strings.Split(s, " ")
+		log.Printf("About to split close commands. cmd:\"%v\"", s)
+		// remove newline
+		args := strings.Split(strings.TrimSpace(s), " ")
+		//args := strings.Split(s, " ")
+		log.Printf("The split args for close:%v", args)
 		if len(args) > 1 {
 			go spClose(args[1])
 		} else {
