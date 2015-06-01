@@ -15,9 +15,10 @@ import (
 )
 
 type BufferflowTinyg struct {
-	Name   string
-	Port   string
-	Paused bool
+	Name         string
+	Port         string
+	Paused       bool
+	ManualPaused bool // indicates user hard paused the buffer on their own, i.e. not from flow control
 	//StopSending     int
 	//StartSending    int
 	//PauseOnEachSend time.Duration // Amount of milliseconds to pause on each send to give TinyG time to send us a qr report
@@ -59,6 +60,9 @@ type BufferflowTinyg struct {
 
 	// use thread locking for b.Paused
 	lock *sync.Mutex
+
+	// use thread locking for b.ManualPaused
+	manualLock *sync.Mutex
 
 	// use more thread locking for b.semLock
 	semLock *sync.Mutex
@@ -129,7 +133,9 @@ type RxMsg struct {
 func (b *BufferflowTinyg) Init() {
 
 	b.Paused = false
+	b.ManualPaused = false
 	b.lock = &sync.Mutex{}
+	b.manualLock = &sync.Mutex{}
 	b.semLock = &sync.Mutex{}
 	//b.SetPaused(false, 2)
 
@@ -153,7 +159,7 @@ func (b *BufferflowTinyg) Init() {
 	/* End Slot Approach Items */
 
 	/* Start Buffer Size Approach Items */
-	b.BufferMax = 20000 //max buffer size 254 bytes available
+	b.BufferMax = 200 //max buffer size 254 bytes available
 	//b.BufferSize = 0  //initialize buffer at zero bytes
 	b.q = NewQueue()
 	//b.lock = sync.Mutex
@@ -494,7 +500,21 @@ func (b *BufferflowTinyg) OnIncomingData(data string) {
 
 				// if we are paused, tell us to unpause cuz we have clean buffer room now
 				if b.GetPaused() {
-					b.SetPaused(false, 1) //set paused to false first, then release the hold on the buffer
+
+					// we are paused, but we can't just go unpause ourself, because we may
+					// be manually paused. this means we have to do a double-check here
+					// and not just go unpausing ourself just cuz we think there's room in the buffer.
+					// this is because we could have just sent a ! to the tinyg. we may still
+					// get back some random r:{} after the ! was sent, and that would mean we think
+					// we can go sending more data, but really we can't cuz we were HARD Manually paused
+					if b.GetManualPaused() == false {
+
+						// we are not in a manual pause state, that means we can go ahead
+						// and unpause ourselves
+						b.SetPaused(false, 1) //set paused to false first, then release the hold on the buffer
+					} else {
+						log.Println("We just got incoming r:{} so we could unpause, but since manual paused we will ignore until next time a r:{} comes in to unpause")
+					}
 				}
 
 				/*
@@ -934,8 +954,13 @@ func (b *BufferflowTinyg) SetPaused(isPaused bool, semRelease int) {
 }
 
 func (b *BufferflowTinyg) GetManualPaused() bool {
-	return false
+	b.manualLock.Lock()
+	defer b.manualLock.Unlock()
+	return b.ManualPaused
 }
 
 func (b *BufferflowTinyg) SetManualPaused(isPaused bool) {
+	b.manualLock.Lock()
+	defer b.manualLock.Unlock()
+	b.ManualPaused = isPaused
 }
