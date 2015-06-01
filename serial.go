@@ -531,6 +531,23 @@ func setMetaData(pi *SpPortItem, metadata []OsSerialPort) {
 	}
 }
 
+func setMetaDataForOsSerialPort(pi *OsSerialPort, metadata []OsSerialPort) {
+	// loop thru metadata and see if this port (pi) is in the list
+	for _, mi := range metadata {
+		if pi.Name == mi.Name {
+			// we have a winner
+			pi.FriendlyName = mi.FriendlyName
+			pi.IdProduct = mi.IdProduct
+			pi.IdVendor = mi.IdVendor
+			pi.Manufacturer = mi.Manufacturer
+			pi.DeviceClass = mi.DeviceClass
+			pi.SerialNumber = mi.SerialNumber
+			pi.RelatedNames = mi.RelatedNames
+			break
+		}
+	}
+}
+
 /*
 func spListOld() {
 	ls := "{\"serialports\" : [\n"
