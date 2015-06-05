@@ -53,7 +53,7 @@ func (h *hub) run() {
 			h.connections[c] = true
 			// send supported commands
 			c.send <- []byte("{\"Version\" : \"" + version + "\"} ")
-			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"close [portName]\", \"bufferalgorithms\", \"baudrates\", \"restart\", \"exit\", \"program [portName] [board:name] [$path/to/filename/without/extension]\", \"programfromurl [portName] [board:name] [urlToHexFile]\"]} ")
+			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"sendjson {P:portName, Data:[{D:cmdStr, Id:idStr}]}\",  \"close [portName]\", \"bufferalgorithms\", \"baudrates\", \"restart\", \"exit\", \"broadcast [anythingToRegurgitate]\", \"hostname\", \"version\", \"program [portName] [core:architecture:name] [path/to/binOrHexFile]\", \"programfromurl [portName] [core:architecture:name] [urlToBinOrHexFile]\"]} ")
 			c.send <- []byte("{\"Hostname\" : \"" + *hostname + "\"} ")
 		case c := <-h.unregister:
 			delete(h.connections, c)
