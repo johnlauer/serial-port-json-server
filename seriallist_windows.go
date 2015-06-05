@@ -184,21 +184,22 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 		log.Printf("DeviceId elements:%v", devIdItems)
 		if len(devIdItems) > 3 {
 			list[i].SerialNumber = devIdItems[3]
-			list[i].IdProduct = strings.Replace(devIdItems[1], "PID_", "", 1)
-			list[i].IdVendor = strings.Replace(devIdItems[0], "USB\\VID_", "", 1)
+			//list[i].IdProduct = strings.Replace(devIdItems[1], "PID_", "", 1)
+			//list[i].IdVendor = strings.Replace(devIdItems[0], "USB\\VID_", "", 1)
 		} else {
 			list[i].SerialNumber = deviceIdStr.ToString()
-			pidMatch := regexp.MustCompile("PID_(\\d+)").FindAllStringSubmatch(deviceIdStr.ToString(), -1)
-			if len(pidMatch) > 0 {
-				if len(pidMatch[0]) > 1 {
-					list[i].IdProduct = pidMatch[0][1]
-				}
+		}
+
+		pidMatch := regexp.MustCompile("PID_(....)").FindAllStringSubmatch(deviceIdStr.ToString(), -1)
+		if len(pidMatch) > 0 {
+			if len(pidMatch[0]) > 1 {
+				list[i].IdProduct = pidMatch[0][1]
 			}
-			vidMatch := regexp.MustCompile("VID_(\\d+)").FindAllStringSubmatch(deviceIdStr.ToString(), -1)
-			if len(vidMatch) > 0 {
-				if len(vidMatch[0]) > 1 {
-					list[i].IdVendor = vidMatch[0][1]
-				}
+		}
+		vidMatch := regexp.MustCompile("VID_(....)").FindAllStringSubmatch(deviceIdStr.ToString(), -1)
+		if len(vidMatch) > 0 {
+			if len(vidMatch[0]) > 1 {
+				list[i].IdVendor = vidMatch[0][1]
 			}
 		}
 
@@ -214,6 +215,7 @@ func getListViaWmiPnpEntity() ([]OsSerialPort, os.SyscallError) {
 	for index, element := range list {
 
 		log.Printf("index:%v, name:%v, friendly:%v ", index, element.Name, element.FriendlyName)
+		log.Printf("pid:%v, vid:%v", element.IdProduct, element.IdVendor)
 
 		for index2, element2 := range list {
 			if index == index2 {

@@ -3,7 +3,10 @@
 package main
 
 import (
+	"encoding/xml"
+	//"fmt"
 	"github.com/facchinm/go-serial"
+	//"io/ioutil"
 	"log"
 	//"os"
 	"regexp"
@@ -69,3 +72,39 @@ func GetFriendlyName(portname string) string {
 	log.Println("GetFriendlyName from base class")
 	return ""
 }
+
+type Dict struct {
+	Keys    []string `xml:"key"`
+	Arrays  []Dict   `xml:"array"`
+	Strings []string `xml:"string"`
+	Dicts   []Dict   `xml:"dict"`
+}
+
+type Result struct {
+	XMLName xml.Name `xml:"plist"`
+	//Strings []string `xml:"dict>string"`
+	Dict `xml:"dict"`
+	//Phone   string
+	//Groups  []string `xml:"Group>Value"`
+}
+
+/*
+func GetDarwinMeta() {
+	xmlFile, err := os.Open("out.xml")
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer xmlFile.Close()
+
+	XMLdata, _ := ioutil.ReadAll(xmlFile)
+
+	var v Result
+	//v := Result{}
+	xml.Unmarshal(XMLdata, &v)
+	log.Printf("Result:%v", len(v.Dicts[0].Arrays))                //, v.Dict.Dicts[0].Keys) // Dicts[0] .Keys[0])
+	log.Printf("Result:%v", v.Dicts[0].Arrays[1].Dicts[0].Keys[0]) // Dicts[0] .Keys[0])
+	log.Printf("Result:%v", v.Dicts[0].Keys[0])                    // Dicts[0] .Keys[0])
+
+}
+*/
