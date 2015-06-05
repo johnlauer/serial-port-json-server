@@ -123,6 +123,8 @@ func main() {
 		log.Printf("You specified a serial port regular expression filter: %v\n", *regExpFilter)
 	}
 
+	//GetDarwinMeta()
+
 	if !*verbose {
 		log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
 		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
