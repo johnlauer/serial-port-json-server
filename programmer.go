@@ -157,7 +157,7 @@ func endProgress() {
 	inProgress = false
 }
 
-// send back pseudo-status to browser while programming in progress
+// send back pseudo-status to browser while downloading in progress
 // so user doesn't think it's dead
 // this is not multi-threaded, but will work for now since
 // this is just a nice-to-have informational progress
