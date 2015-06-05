@@ -10,12 +10,18 @@ import (
 	//"strconv"
 	//"syscall"
 	//"fmt"
+	//"encoding/xml"
 	"io/ioutil"
 )
 
 func getMetaList() ([]OsSerialPort, os.SyscallError) {
 	//return getListViaWmiPnpEntity()
 	return getListViaTtyList()
+
+	// query the out.xml file for now, but in real life
+	// we would run the ioreg -a -p IOUSB command to get the output
+	// and then parse it
+
 }
 
 func getListViaTtyList() ([]OsSerialPort, os.SyscallError) {
