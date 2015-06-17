@@ -492,7 +492,9 @@ func spList() {
 		}
 
 		// if we have meta data for this port, use it
-		setMetaData(&spl.SerialPorts[ctr], metaports)
+		if len(metaports) > 0 {
+			setMetaData(&spl.SerialPorts[ctr], metaports)
+		}
 
 		// figure out if port is open
 		//spl.SerialPorts[ctr].IsOpen = false
@@ -509,6 +511,9 @@ func spList() {
 		ctr++
 	}
 
+	// we are getting a crash here, so thinking it's like a null pointer. do some further
+	// debug and set default values
+	log.Printf("About to marshal the serial port list. spl:%v", spl)
 	ls, err := json.MarshalIndent(spl, "", "\t")
 	if err != nil {
 		log.Println(err)
