@@ -89,49 +89,9 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 
 	// LOOK FOR THE WORD MANUFACTURER
 	// search /sys folder
-	/*
-		oscmd := exec.Command("find", "/sys/", "-name", "manufacturer", "-print") //, "2>", "/dev/null")
-		// Stdout buffer
-		cmdOutput := &bytes.Buffer{}
-		// Attach buffer to command
-		oscmd.Stdout = cmdOutput
-
-		errstart := oscmd.Start()
-		if errstart != nil {
-			log.Printf("Got error running find cmd. Maybe they don't have it installed? %v:", errstart)
-			return nil, err
-		}
-		//log.Printf("Waiting for command to finish... %v", oscmd)
-
-		errwait := oscmd.Wait()
-
-		if errwait != nil {
-			log.Printf("Command finished with error: %v, cmd was:%v, stdout was:%v", errwait, oscmd, string(cmdOutput.Bytes()))
-			return nil, err
-		}
-
-		//log.Printf("Finished without error. Good stuff. stdout:%v", string(cmdOutput.Bytes()))
-
-		// analyze stdout
-		// we should be able to split on newline to each file
-		files := strings.Split(string(cmdOutput.Bytes()), "\n")
-		/*if len(files) == 0 {
-			return nil, err
-		}*
-	*/
 	files := findFiles("/sys", "^manufacturer$")
 
 	// LOOK FOR THE WORD PRODUCT
-	/*
-		oscmd2 := exec.Command("find", "/sys/", "-name", "product", "-print") //, "2>", "/dev/null")
-		cmdOutput2 := &bytes.Buffer{}
-		oscmd2.Stdout = cmdOutput2
-
-		oscmd2.Start()
-		oscmd2.Wait()
-
-		filesFromProduct := strings.Split(string(cmdOutput2.Bytes()), "\n")
-	*/
 	filesFromProduct := findFiles("/sys", "^product$")
 
 	// append both arrays so we have one (then we'll have to de-dupe)
@@ -247,36 +207,6 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 		log.Printf("%v : %v (%v) DevClass:%v", manuf, product, serialNum, deviceClass)
 
 		// -name tty[AU]* -print
-		/*
-			oscmd = exec.Command("find", directory, "-name", "tty[AU]*", "-print")
-
-			// Stdout buffer
-			cmdOutput = &bytes.Buffer{}
-			// Attach buffer to command
-			oscmd.Stdout = cmdOutput
-
-			errstart = oscmd.Start()
-			if errstart != nil {
-				log.Printf("Got error running find cmd. Maybe they don't have it installed? %v:", errstart)
-				//return nil, err
-				continue
-			}
-			//log.Printf("Waiting for command to finish... %v", oscmd)
-
-			errwait = oscmd.Wait()
-
-			if errwait != nil {
-				log.Printf("Command finished with error: %v", errwait)
-				//return nil, err
-				continue
-			}
-
-			//log.Printf("Finished searching manuf directory without error. Good stuff. stdout:%v", string(cmdOutput.Bytes()))
-			//log.Printf(" \n")
-
-			// we should be able to split on newline to each file
-			filesTty := strings.Split(string(cmdOutput.Bytes()), "\n")
-		*/
 		filesTty := findDirs(directory, "^tty(A|U).*")
 
 		// generate a unique list of tty ports below
@@ -323,6 +253,7 @@ func getAllPortsViaManufacturer() ([]OsSerialPort, os.SyscallError) {
 			if len(product) > 0 {
 				listitem.FriendlyName += " " + product
 			}
+
 			listitem.FriendlyName += " (" + key + ")"
 			listitem.FriendlyName = friendlyNameCleanup(listitem.FriendlyName)
 
