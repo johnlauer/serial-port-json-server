@@ -54,8 +54,19 @@ func spProgram(portname string, boardname string, filePath string) {
 }
 
 var oscmd *exec.Cmd
+var isRunning = false
 
 func spHandlerProgram(flasher string, cmdString []string) {
+
+	// Extra protection code to ensure we aren't getting called from multiple threads
+	if isRunning {
+		mapD := map[string]string{"ProgrammerStatus": "ThreadError", "Msg": "You tried to run a 2nd (or further) program command while the 1st one was already running. Only 1 program cmd can run at once."}
+		mapB, _ := json.Marshal(mapD)
+		h.broadcastSys <- mapB
+		return
+	}
+
+	isRunning = true
 
 	//h.broadcastSys <- []byte("Start flashing with command " + cmdString)
 	log.Printf("Flashing with command:" + strings.Join(cmdString, " "))
@@ -99,6 +110,8 @@ func spHandlerProgram(flasher string, cmdString []string) {
 		// analyze stdin
 
 	}
+
+	isRunning = false
 }
 
 func spHandlerProgramKill() {
