@@ -128,7 +128,7 @@ type ProgressState struct {
 	ProgrammerStatus string
 	Duration         int
 	Pid              int
-	ProcessState     string
+	//ProcessState     string
 }
 
 func startProgress() {
@@ -141,11 +141,16 @@ func startProgress() {
 			if inProgress == false {
 				break
 			}
+			// break after 5 minutes max
+			if duration > 60*5 {
+				break
+			}
+
 			progmsg := ProgressState{
 				"Progress",
 				duration,
 				oscmd.Process.Pid,
-				oscmd.ProcessState.String(),
+				//oscmd.ProcessState.String(),
 			}
 			bm, _ := json.Marshal(progmsg)
 			h.broadcastSys <- []byte(bm)
@@ -172,6 +177,10 @@ func startDownloadProgress() {
 			duration++
 			h.broadcastSys <- []byte("{\"ProgrammerStatus\": \"DownloadProgress\", \"Duration\": " + strconv.Itoa(duration) + "}")
 			if inDownloadProgress == false {
+				break
+			}
+			// break after 5 minutes max
+			if duration > 60*5 {
 				break
 			}
 		}
@@ -450,6 +459,9 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 			cmdlineSliceOut = append(cmdlineSliceOut, element)
 		}
 	}
+
+	// add verbose
+	cmdlineSliceOut = append(cmdlineSliceOut, "-v")
 
 	log.Printf("Tool:%v, cmdline:%v\n", tool, cmdlineSliceOut)
 	return (tool != ""), tool, cmdlineSliceOut
