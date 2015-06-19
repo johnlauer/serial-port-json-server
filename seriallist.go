@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/xml"
+	"strings"
 	//"fmt"
 	"github.com/facchinm/go-serial"
 	//"io/ioutil"
@@ -32,7 +33,8 @@ func GetList() ([]OsSerialPort, error) {
 
 	arrPorts := []OsSerialPort{}
 	for _, element := range ports {
-		arrPorts = append(arrPorts, OsSerialPort{Name: element, FriendlyName: element})
+		friendly := strings.Replace(element, "/dev/", "", -1)
+		arrPorts = append(arrPorts, OsSerialPort{Name: element, FriendlyName: friendly})
 	}
 
 	// see if we should filter the list
