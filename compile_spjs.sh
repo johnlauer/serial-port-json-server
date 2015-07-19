@@ -7,6 +7,8 @@ if [ "$1" = "" ]; then
         exit
 fi
 
+cp README.md snapshot/
+
 cp -r arduino/tools_linux_64  arduino/tools
 goxc -os="linux" -arch="amd64" --include="arduino/hardware,arduino/tools" -n="serial-port-json-server_$1" -d=.
 rm -rf arduino/tools
