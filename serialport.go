@@ -370,6 +370,13 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
+	} else if buftype == "marlin" {
+		// marlin bufferflow
+		// store port as parent_serport for use in intializing a status query loop for '?'
+		bw := &BufferflowMarlin{Name: "marlin", parent_serport: p}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
 	} else {
 		bw := &BufferflowDefault{}
 		bw.Init()
