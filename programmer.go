@@ -98,7 +98,8 @@ func spHandlerProgram(flasher string, cmdString []string) {
 	if err != nil {
 		log.Printf("Command finished with error: %v "+string(cmdOutput), err)
 		h.broadcastSys <- []byte("Could not program the board")
-		mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": "Could not program the board. It is also possible your serial port is locked by another app and thus we can't grab it to use for programming. Make sure all other apps that may be trying to access this serial port are disconnected or exited.", "Output": string(cmdOutput)}
+		//mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": "Could not program the board. It is also possible your serial port is locked by another app and thus we can't grab it to use for programming. Make sure all other apps that may be trying to access this serial port are disconnected or exited.", "Output": string(cmdOutput)}
+		mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": "Could not program the board.", "Output": string(cmdOutput)}
 		mapB, _ := json.Marshal(mapD)
 		h.broadcastSys <- mapB
 	} else {
@@ -424,6 +425,16 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 		// the portname could change in this occasion, so fail gently
 		log.Println("Sending ctrl+x to enter bootloader mode")
 
+		// Extra protection code to ensure we aren't getting called from multiple threads
+		if isRunning {
+			mapD := map[string]string{"AssembleStatus": "ThreadError", "Msg": "You tried to run a 2nd (or further) Ctrl+x prep command while the 1st one was already running."}
+			mapB, _ := json.Marshal(mapD)
+			h.broadcastSys <- mapB
+			return false, "", nil
+		}
+
+		isRunning = true
+
 		mode := &serial.Mode{
 			BaudRate: 115200,
 			Vmin:     1,
@@ -435,6 +446,7 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 			mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": err.Error()}
 			mapB, _ := json.Marshal(mapD)
 			h.broadcastSys <- mapB
+			isRunning = false
 			return false, "", nil
 		}
 		log.Println("Was able to open port in 115200 baud mode for ctrl+x send")
@@ -443,6 +455,7 @@ func assembleCompilerCommand(boardname string, portname string, filePath string)
 		port.Close()
 		log.Println("Sent ctrl+x and then closed port. Go ahead and upload cuz we are in bootloader mode.")
 	}
+	isRunning = false
 
 	boardOptions["serial.port"] = portname
 	boardOptions["serial.port.file"] = filepath.Base(portname)
