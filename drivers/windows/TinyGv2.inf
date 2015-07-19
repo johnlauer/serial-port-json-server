@@ -1,0 +1,71 @@
+[Strings]
+DriverPackageDisplayName="TinyG USB Driver"
+ManufacturerName="Synthetos (www.synthetos.com)"
+ServiceName="USB RS-232 Emulation Driver"
+due.bossa.name="Bossa Program Port"
+due.programming_port.name="Arduino Due Programming Port"
+due.sketch01.name="TinyG v2 (Control Channel)"
+due.sketch02.name="TinyG v2 (Data Channel)"
+due.original.name="Arduino (broken TinyGv2)"
+
+[DefaultInstall]
+CopyINF=arduino.inf
+
+[Version]
+Class=Ports
+ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318}
+Signature="$Windows NT$"
+Provider=%ManufacturerName%
+DriverPackageDisplayName=%DriverPackageDisplayName%
+CatalogFile=arduino.cat
+DriverVer=08/27/2014,1.0.1.0
+
+[Manufacturer]
+%ManufacturerName%=DeviceList, NTamd64, NTia64
+
+[DestinationDirs]
+FakeModemCopyFileSection=12
+DefaultDestDir=12
+
+[DeviceList]
+%due.bossa.name%=DriverInstall, USB\VID_03EB&PID_6124
+%due.programming_port.name%=DriverInstall, USB\VID_2341&PID_003D
+%due.sketch01.name%=DriverInstall, USB\VID_1D50&PID_606D&MI_00
+%due.sketch02.name%=DriverInstall, USB\VID_1D50&PID_606D&MI_01
+%due.original.name%=DriverInstall, USB\VID_2341&PID_003E&MI_00
+
+[DeviceList.NTamd64]
+%due.bossa.name%=DriverInstall, USB\VID_03EB&PID_6124
+%due.programming_port.name%=DriverInstall, USB\VID_2341&PID_003D
+%due.sketch01.name%=DriverInstall, USB\VID_1D50&PID_606D&MI_00
+%due.sketch02.name%=DriverInstall, USB\VID_1D50&PID_606D&MI_01
+%due.original.name%=DriverInstall, USB\VID_2341&PID_003E&MI_00
+
+[DeviceList.NTia64]
+%due.bossa.name%=DriverInstall, USB\VID_03EB&PID_6124
+%due.programming_port.name%=DriverInstall, USB\VID_2341&PID_003D
+%due.sketch01.name%=DriverInstall, USB\VID_1D50&PID_606D&MI_00
+%due.sketch02.name%=DriverInstall, USB\VID_1D50&PID_606D&MI_01
+%due.original.name%=DriverInstall, USB\VID_2341&PID_003E&MI_00
+
+[DriverInstall]
+include=mdmcpq.inf,usb.inf
+CopyFiles = FakeModemCopyFileSection
+AddReg=DriverAddReg
+
+[DriverAddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,usbser.sys
+HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider"
+
+[DriverInstall.Services]
+include=mdmcpq.inf
+AddService=usbser, 0x00000002, DriverService
+
+[DriverService]
+DisplayName=%ServiceName%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\usbser.sys
+LoadOrderGroup=Base
