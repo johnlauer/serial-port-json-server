@@ -27,3 +27,5 @@ cp -r arduino/tools_darwin  arduino/tools
 goxc -os="darwin" --include="arduino/hardware,arduino/tools" -n="serial-port-json-server_$1" -d=.
 rm -rf arduino/tools
 
+sudo mkdir "/media/sf_downloads/v$1"
+sudo cp snapshot/*.zip snapshot/*.gz snapshot/*.md snapshot/*.deb "/media/sf_downloads/v$1/"
