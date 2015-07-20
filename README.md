@@ -73,6 +73,18 @@ Here's a screenshot of a successful run on Windows x64. Make sure you allow the 
 
 Binaries for Download
 ---------
+Version 1.83
+Build date: July 19, 2015
+Build has Arduino/Atmel Programmer built in and Marlin buffer support.
+
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_windows_386.zip">Windows x32</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_windows_amd64.zip">Windows x64</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_darwin_amd64.zip">Mac OS X x64</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_386.tar.gz">Linux x32</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_amd64.tar.gz">Linux x64</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi / Beagle Bone Black (Linux ARM)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
+
 Version 1.80
 Build date: Mar 8, 2015
 Build has new garbage collection, "broadcast" tag, and "hostname" tag support.
