@@ -85,6 +85,7 @@ Build has Arduino/Atmel Programmer built in and Marlin buffer support.
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi / Beagle Bone Black (Linux ARM)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
 
+<!--
 Version 1.80
 Build date: Mar 8, 2015
 Build has new garbage collection, "broadcast" tag, and "hostname" tag support.
@@ -110,7 +111,8 @@ Build date: Feb 1, 2015
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi (Linux ARM)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_arm.tar.gz">Beagle Bone Black (Linux ARM)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
-                                    
+-->
+        
 How to Build
 ---------
 You do not need to build this. Binaries are available above. However, if you still want to build...
