@@ -77,7 +77,7 @@ Version 1.83
 Build date: July 19, 2015
 Build has Arduino/Atmel Programmer built in and Marlin buffer support.
 
-Please note: Grbl users on Windows should use version 1.80 below, not 1.83.
+Please note: All TinyG and TinyG G2 users should use 1.83. All Grbl users on Linux/Mac should also use 1.83. Grbl users on Windows should use version 1.80 below, not 1.83.
 
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_windows_386.zip">Windows x32</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_windows_amd64.zip">Windows x64</a>
