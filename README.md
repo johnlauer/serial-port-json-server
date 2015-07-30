@@ -77,6 +77,8 @@ Version 1.83
 Build date: July 19, 2015
 Build has Arduino/Atmel Programmer built in and Marlin buffer support.
 
+Please note: Grbl users on Windows should use version 1.80 below, not 1.83.
+
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_windows_386.zip">Windows x32</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_windows_amd64.zip">Windows x64</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_darwin_amd64.zip">Mac OS X x64</a>
@@ -85,7 +87,7 @@ Build has Arduino/Atmel Programmer built in and Marlin buffer support.
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi / Beagle Bone Black (Linux ARM)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
 
-<!--
+
 Version 1.80
 Build date: Mar 8, 2015
 Build has new garbage collection, "broadcast" tag, and "hostname" tag support.
@@ -101,6 +103,7 @@ Build has new garbage collection, "broadcast" tag, and "hostname" tag support.
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv8.tar.gz">Linux ARMv8 (AppliedMicro X-Gene)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
 
+<!--
 Version 1.77
 Build date: Feb 1, 2015
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_windows_386.zip">Windows x32</a>
