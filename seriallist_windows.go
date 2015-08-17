@@ -3,8 +3,10 @@ package main
 import (
 	//"fmt"
 	//"github.com/lxn/win"
-	"github.com/mattn/go-ole"
-	"github.com/mattn/go-ole/oleutil"
+	//"github.com/mattn/go-ole"
+	//"github.com/mattn/go-ole/oleutil"
+	"github.com/go-ole/go-ole"
+	"github.com/go-ole/go-ole/oleutil"
 	//"github.com/tarm/goserial"
 	//"github.com/johnlauer/goserial"
 	"github.com/facchinm/go-serial"

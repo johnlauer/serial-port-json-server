@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.83
+Version 1.84
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -316,6 +316,9 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.84
+- Added TinyG Line Mode (also referred to as Packet Mode). This sends data to TinyG in a different way to try to make sure no buffers overflow in either direction but there also is no pausing either like some users have reported on longer jobs.
+
 Changes in 1.83
 - Rebased with BFG to remove old binaries that were bloating the Github repo. Repo was 230MB and is now 10MB. Please clone new repos from scratch as of 7/19/15 so you get the new rebased repo if you are going to do any pull requests in the future.
 - Added Marlin buffer courtesy of Peter van der Walt

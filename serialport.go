@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -237,7 +238,7 @@ func (p *serport) writerNoBuf() {
 	// sees something come in
 	for data := range p.sendNoBuf {
 
-		log.Printf("Got p.sendNoBuf. data:%v, id:%v\n", string(data.data), string(data.id))
+		log.Printf("Got p.sendNoBuf. id:%v, data:%v\n", string(data.id), strings.Replace(string(data.data), "\n", "\\n", -1))
 
 		// if we get here, we were able to write successfully
 		// to the serial port because it blocks until it can write
@@ -318,13 +319,22 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 		isPrimary = false
 	}
 
+	//options := serial.RawOptions
+	//options.BitRate = 1200
+	//options.FlowControl = serial.FLOWCONTROL_RTSCTS
+	//p, err := options.Open(portname)
+
 	conf := &SerialConfig{Name: portname, Baud: baud, RtsOn: true}
+	conf.DtrOn = false
 
 	mode := &serial.Mode{
 		BaudRate: baud,
 		Vmin:     0,
 		Vtimeout: 10,
 	}
+	//mode.DataBits = 7
+	//mode.Parity = 0
+	//mode.StopBits = 1
 
 	sp, err := serial.OpenPort(portname, mode)
 	log.Print("Just tried to open port")
@@ -354,6 +364,13 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
+	} else if buftype == "tinyg_linemode" {
+
+		bw := &BufferflowTinygPktMode{Name: "tinyg_linemode", parent_serport: p}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
+
 	} else if buftype == "dummypause" {
 
 		// this is a dummy pause type bufferflow object

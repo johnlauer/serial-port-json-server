@@ -5,7 +5,7 @@ import (
 //"time"
 )
 
-var availableBufferAlgorithms = []string{"default", "tinyg", "tinygg2", "grbl", "marlin"}
+var availableBufferAlgorithms = []string{"default", "tinyg", "tinyg_linemode", "tinygg2", "grbl", "marlin"}
 
 //var availableBufferAlgorithms = []string{"default", "tinyg", "tinygg2", "dummypause", "grbl"}
 
