@@ -212,6 +212,10 @@ func checkCmd(m []byte) {
 	} else if strings.HasPrefix(sl, "list") {
 		go spList()
 		//go getListViaWmiPnpEntity()
+	} else if strings.HasPrefix(sl, "fro") {
+		// User is wanting us to tweak the feedrate on-the-fly
+		go spFeedRateOverride(s)
+
 	} else if strings.HasPrefix(sl, "bufferalgorithm") {
 		go spBufferAlgorithms()
 	} else if strings.HasPrefix(sl, "baudrate") {

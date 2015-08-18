@@ -59,6 +59,9 @@ type serport struct {
 	// or if its secondary, i.e. a backup port or arduino or something tertiary
 	IsPrimary   bool
 	IsSecondary bool
+
+	// Feedrate override value
+	feedRateOverride float32
 }
 
 type Cmd struct {
@@ -81,6 +84,15 @@ type qwReport struct {
 	QCnt int
 	Id   string
 	D    string `json:"-"`
+	Buf  string `json:"-"`
+	P    string
+}
+
+type qwReportWithData struct {
+	Cmd  string
+	QCnt int
+	Id   string
+	D    string //`json:"-"`
 	Buf  string `json:"-"`
 	P    string
 }
@@ -248,21 +260,47 @@ func (p *serport) writerNoBuf() {
 		log.Printf("itemsInBuffer:%v\n", p.itemsInBuffer)
 		//h.broadcastSys <- []byte("{\"Cmd\":\"Write\",\"QCnt\":" + strconv.Itoa(p.itemsInBuffer) + ",\"Byte\":" + strconv.Itoa(n2) + ",\"Port\":\"" + p.portConf.Name + "\"}")
 
-		// For reducing load on websocket, stop transmitting write data
+		// Figure out buffered or not buffered
 		buf := "Buf"
 		if data.skippedBuffer {
 			buf = "NoBuf"
 		}
-		qwr := qwReport{
-			Cmd:  "Write",
-			QCnt: p.itemsInBuffer,
-			Id:   string(data.id),
-			D:    string(data.data),
-			Buf:  buf,
-			P:    p.portConf.Name,
+
+		// WARNING - Feedrate Override doesn't really belong in here because this is supposed
+		// to be a generic implementation of sending/receiving to serial ports
+		// However, there's not really a better place to put this because you need to know
+		// last minute what the feedrate override is and let the user adjust it at any time
+		// If you want a generic serial port implementation, remove this last minute call from this code
+		didWeOverride, newData := doFeedRateOverride(data.data, p.feedRateOverride)
+
+		if didWeOverride {
+			// We need to reset the gcode and make the qwReport be what we want
+			// Since we changed the gcode, we need to report it back to the user
+			// For reducing load on websocket, stop transmitting write data
+			data.data = newData
+			qwr := qwReportWithData{
+				Cmd:  "Write",
+				QCnt: p.itemsInBuffer,
+				Id:   string(data.id),
+				D:    string(data.data),
+				Buf:  buf,
+				P:    p.portConf.Name,
+			}
+			qwrJson, _ := json.Marshal(qwr)
+			h.broadcastSys <- qwrJson
+		} else {
+			// For reducing load on websocket, stop transmitting write data
+			qwr := qwReport{
+				Cmd:  "Write",
+				QCnt: p.itemsInBuffer,
+				Id:   string(data.id),
+				D:    string(data.data),
+				Buf:  buf,
+				P:    p.portConf.Name,
+			}
+			qwrJson, _ := json.Marshal(qwr)
+			h.broadcastSys <- qwrJson
 		}
-		qwrJson, _ := json.Marshal(qwr)
-		h.broadcastSys <- qwrJson
 
 		// FINALLY, OF ALL THE CODE IN THIS PROJECT
 		// WE TRULY/FINALLY GET TO WRITE TO THE SERIAL PORT!
@@ -348,8 +386,8 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	}
 	log.Print("Opened port successfully")
 	//p := &serport{send: make(chan []byte, 256), portConf: conf, portIo: sp}
-	// we can go up to 256,000 lines of gcode in the buffer
-	p := &serport{sendBuffered: make(chan Cmd, 256000), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype, IsPrimary: isPrimary, IsSecondary: isSecondary}
+	// we can go up to 500,000 lines of gcode in the buffer
+	p := &serport{sendBuffered: make(chan Cmd, 500000), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype, IsPrimary: isPrimary, IsSecondary: isSecondary}
 
 	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
 	if buftype == "tinyg" {

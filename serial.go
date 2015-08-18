@@ -102,6 +102,7 @@ type SpPortItem struct {
 	Ver                       float32
 	UsbVid                    string
 	UsbPid                    string
+	FeedRateOverride          float32
 }
 
 var sh = serialhub{
@@ -506,6 +507,7 @@ func spList() {
 			spl.SerialPorts[ctr].Baud = myport.portConf.Baud
 			spl.SerialPorts[ctr].BufferAlgorithm = myport.BufferType
 			spl.SerialPorts[ctr].IsPrimary = myport.IsPrimary
+			spl.SerialPorts[ctr].FeedRateOverride = myport.feedRateOverride
 		}
 		//ls += "{ \"name\" : \"" + item.Name + "\", \"friendly\" : \"" + item.FriendlyName + "\" },\n"
 		ctr++
@@ -725,4 +727,66 @@ func spBaudRates() {
 	}
 	json = regexp.MustCompile(", $").ReplaceAllString(json, "]}")
 	h.broadcastSys <- []byte(json)
+}
+
+type froRequestJson struct {
+	Cmd              string
+	Desc             string
+	Port             string
+	FeedRateOverride float32
+}
+
+func spFeedRateOverride(arg string) {
+
+	// we will get a string of "fro COM9 2.4" or "fro /dev/ttyUSB0 0.1"
+	log.Printf("Inside spFeedRateOverride arg: %v\n", arg)
+	arg = strings.TrimPrefix(arg, " ")
+
+	args := strings.SplitN(arg, " ", 3)
+	if len(args) != 3 {
+		errstr := "Could not parse feedrate override command: " + arg
+		log.Println(errstr)
+		spErr(errstr)
+		return
+	}
+	portname := strings.Trim(args[1], " ")
+	log.Println("The port to write to is:" + portname + "---")
+	log.Println("The data is:" + args[2] + "---")
+
+	// see if we have this port open
+	myport, isFound := findPortByName(portname)
+
+	if !isFound {
+		// we couldn't find the port, so send err
+		spErr("We could not find the serial port " + portname + " that you were trying to apply the feedrate override to.")
+		return
+	}
+
+	// we found our port, so now parse our multiplier
+	fro, err := strconv.ParseFloat(strings.TrimSpace(args[2]), 32)
+	if err != nil {
+		errstr := "Could not parse feedrate override multiplier value: " + args[2]
+		log.Println(errstr)
+		spErr(errstr)
+		return
+	}
+
+	myport.feedRateOverride = float32(fro)
+
+	var frj froRequestJson
+	frj.Cmd = "FeedRateOverride"
+	frj.FeedRateOverride = myport.feedRateOverride
+	frj.Port = myport.portConf.Name
+	frj.Desc = "Successfully set the feedrate override."
+
+	ls, err := json.MarshalIndent(frj, "", "\t")
+	if err != nil {
+		log.Println(err)
+		h.broadcastSys <- []byte("Error creating json on feedrate override report " +
+			err.Error())
+	} else {
+		//log.Print("Printing out json byte data...")
+		//log.Print(ls)
+		h.broadcastSys <- ls
+	}
 }
