@@ -196,8 +196,8 @@ func (b *BufferflowTinygPktMode) Init() {
 	//go spWrite("send " + b.parent_serport.portConf.Name + " {rxm:1}\n")
 
 	go func() {
-		time.Sleep(10 * time.Millisecond)
-		spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{rxm:1}\\n\", \"Id\":\"internalInit0\"}]}")
+		time.Sleep(50 * time.Millisecond)
+		spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rxm\\\":1}\\n\", \"Id\":\"internalInit0\"}]}")
 
 	}()
 
@@ -679,6 +679,15 @@ func (b *BufferflowTinygPktMode) BreakApartCommands(cmd string) []string {
 		if match := b.rePutBackInJsonMode.MatchString(item); match {
 			// yes, this cmd needs to have us put tinyg back in json mode
 			newFinalCmds = append(newFinalCmds, "{\"ej\":\"\"}\n")
+
+			/*
+				go func() {
+					time.Sleep(1500 * time.Millisecond)
+					spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"ej\\\":1}\\n\", \"Id\":\"internalInit0\"}]}")
+
+				}()
+			*/
+
 		}
 	}
 
