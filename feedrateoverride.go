@@ -55,7 +55,7 @@ func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 
 				// if we get here we need to inject an F at the end of the line
 				injectFr := currentFeedrate * float64(feedrateoverride)
-				log.Printf("We do know the current feedrate: %v, so we will inject: F%v\n")
+				log.Printf("We do know the current feedrate: %v, so we will inject: F%v\n", currentFeedrate, injectFr)
 
 				str = str + "F" + FloatToString(injectFr)
 				log.Printf("New gcode line: %v\n", str)
