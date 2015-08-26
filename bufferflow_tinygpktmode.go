@@ -116,8 +116,8 @@ func (b *BufferflowTinygPktMode) Init() {
 
 	// Packet Mode Counters
 	b.rePacketCtr, _ = regexp.Compile("\"f\":\\[\\d+,\\d+,(\\d+)")
-	b.PacketCtrMin = 3   // if you are at this many packet mode slots left, stop, don't go below it
-	b.PacketCtrAvail = 6 // this is the default number that TinyG starts with
+	b.PacketCtrMin = 16   // 3   // if you are at this many packet mode slots left, stop, don't go below it
+	b.PacketCtrAvail = 32 //6 // this is the default number that TinyG starts with
 
 	//b.StartSending = 20
 	//b.StopSending = 18
