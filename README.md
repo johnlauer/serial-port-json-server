@@ -156,6 +156,7 @@ bufferalgorithms | | List the available bufferAlgorithms on the server. You will
 baudrates | | List common baudrates such as 2400, 9600, 115200
 restart | | Restart the serial port JSON server
 exit | | Exit the serial port JSON server
+fro | fro COM 1.5 | Multiplies the current feed rate by the value passed in for the specific serial port. (This is specific to Gcode, so if using SPJS for non-Gcode work this command won't mean much.)
 memstats | | Send back data on the memory usage and garbage collection performance
 broadcast string | broadcast my data | Send in this command and you will get a message reflected back to all connected endpoints. This is useful for communicating with all connected clients, i.e. in a CNC scenario is a pendant wants to ask the main workspace if there are any settings it should know about. For example send in "broadcast this is my custom cmd" and get this reflected back to all connected sockets {"Cmd":"Broadcast","Msg":"this is my custom cmd\n"}
 version | | Get the software version of SPJS that is running
@@ -318,6 +319,7 @@ Revisions
 -------
 Changes in 1.84
 - Added TinyG Line Mode (also referred to as Packet Mode). This sends data to TinyG in a different way to try to make sure no buffers overflow in either direction but there also is no pausing either like some users have reported on longer jobs.
+- Added feed rate override. Send in a command like "fro COM7 1.5" to multiply the feed rate by 1.5x.
 
 Changes in 1.83
 - Rebased with BFG to remove old binaries that were bloating the Github repo. Repo was 230MB and is now 10MB. Please clone new repos from scratch as of 7/19/15 so you get the new rebased repo if you are going to do any pull requests in the future.
