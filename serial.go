@@ -789,4 +789,8 @@ func spFeedRateOverride(arg string) {
 		//log.Print(ls)
 		h.broadcastSys <- ls
 	}
+
+	// if we made it this far we truly have a feedrate override in play
+	// so set boolean that we need to inject it into the next line
+	isFroNeedTriggered = true
 }
