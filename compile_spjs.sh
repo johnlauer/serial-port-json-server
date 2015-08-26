@@ -7,6 +7,8 @@ if [ "$1" = "" ]; then
         exit
 fi
 
+rm -rf snapshot/*
+
 cp README.md snapshot/
 
 cp -r arduino/tools_linux_64  arduino/tools
