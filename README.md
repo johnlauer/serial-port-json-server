@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.84
+Version 1.85
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -116,6 +116,16 @@ Build date: Feb 1, 2015
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
 -->
         
+Feed Rate Override
+---------
+There is a new feature available as of version 1.83 which is Feed Rate Override. It can be triggered by sending in a command like the following:
+
+`fro COM4 0.5`
+
+This command asks SPJS to override the existing feed rate and reduce it by half. If you have a feedrate of 200 then the command above would bring it to 100 by multiplying 200 * 0.5 = 100. To turn off the feed rate override set it back to 0 with a command such as:
+
+`fro COM4 0.0`
+
 How to Build
 ---------
 You do not need to build this. Binaries are available above. However, if you still want to build...
@@ -317,6 +327,9 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.85
+- Moved back to original serial library that was used in 1.80 and away from the new one that the Arduino team added that was used in 1.83. Too many problems were happening with mangled characters in 1.83.
+
 Changes in 1.84
 - Added TinyG Line Mode (also referred to as Packet Mode). This sends data to TinyG in a different way to try to make sure no buffers overflow in either direction but there also is no pausing either like some users have reported on longer jobs.
 - Added feed rate override. Send in a command like "fro COM7 1.5" to multiply the feed rate by 1.5x.

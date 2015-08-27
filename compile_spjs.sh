@@ -38,5 +38,8 @@ rm -rf arduino/tools
 mv snapshot/serial-port-json-server_darwin_386.zip snapshot/serial-port-json-server-$1_darwin_386.zip
 mv snapshot/serial-port-json-server_darwin_amd64.zip snapshot/serial-port-json-server-$1_darwin_amd64.zip
 
+// remove snapshot files
+rm snapshot/*snapshot*
+
 sudo mkdir "/media/sf_downloads/v$1"
 sudo cp snapshot/*.zip snapshot/*.gz snapshot/*.md snapshot/*.deb "/media/sf_downloads/v$1/"
