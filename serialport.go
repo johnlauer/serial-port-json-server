@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	//"github.com/johnlauer/goserial"
-	"github.com/facchinm/go-serial"
+	"github.com/johnlauer/goserial"
+	//"github.com/facchinm/go-serial"
 	"io"
 	"log"
 	"strconv"
@@ -32,8 +32,13 @@ type SerialConfig struct {
 
 type serport struct {
 	// The serial port connection.
-	portConf *SerialConfig
-	portIo   io.ReadWriteCloser
+
+	// Needed for original serial library
+	portConf *serial.Config
+	// Needed for Arduino serial library
+	//portConf *SerialConfig
+
+	portIo io.ReadWriteCloser
 
 	done chan bool // signals the end of this request
 
@@ -362,19 +367,36 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	//options.FlowControl = serial.FLOWCONTROL_RTSCTS
 	//p, err := options.Open(portname)
 
-	conf := &SerialConfig{Name: portname, Baud: baud, RtsOn: true}
+	// Needed for original serial library
+	conf := &serial.Config{}
+	conf.Baud = baud
+	conf.Name = portname
+	conf.RtsOn = true
 	conf.DtrOn = false
 
-	mode := &serial.Mode{
-		BaudRate: baud,
-		Vmin:     0,
-		Vtimeout: 10,
-	}
+	// Needed for Arduino serial library
+	/*
+		conf := &SerialConfig{Name: portname, Baud: baud, RtsOn: true}
+		conf.DtrOn = false
+	*/
+
+	/*
+		// Needed for Arduino serial library
+		mode := &serial.Mode{
+			BaudRate: baud,
+			Vmin:     0,
+			Vtimeout: 10,
+		}
+	*/
 	//mode.DataBits = 7
 	//mode.Parity = 0
 	//mode.StopBits = 1
 
-	sp, err := serial.OpenPort(portname, mode)
+	// Needed for original serial library
+	sp, err := serial.OpenPort(conf)
+	// Needed for Arduino serial library
+	//sp, err := serial.OpenPort(portname, mode)
+
 	log.Print("Just tried to open port")
 	if err != nil {
 		//log.Fatal(err)
