@@ -85,7 +85,7 @@ func spFeedRateOverride(arg string) {
 // Here is where we actually apply the feedrate override on a line of gcode
 func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 
-	if feedrateoverride == 0.0 {
+	if feedrateoverride == 0.0 && !isFroNeedTriggered {
 		log.Println("Feedrate is nil or 0.0 so returning")
 		return false, ""
 	}
@@ -121,8 +121,14 @@ func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 
 			} else {
 
+				myFro := feedrateoverride
+				// since a value of 0 means turn off, we need to make it multiply like a 1, but leave it zero to mean turn off
+				if myFro == 0.0 {
+					myFro = 1.0
+				}
+
 				// if we get here we need to inject an F at the end of the line
-				injectFr := currentFeedrate * float64(feedrateoverride)
+				injectFr := currentFeedrate * float64(myFro)
 				log.Printf("We do know the current feedrate: %v, so we will inject: F%v\n", currentFeedrate, injectFr)
 
 				str = str + "F" + FloatToString(injectFr)
