@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"regexp"
-	"strconv"
+	//"strconv"
 	"strings"
 	"sync"
 	//"time"
@@ -57,6 +57,7 @@ type BufferflowTinygPktMode struct {
 	rePacketCtr *regexp.Regexp
 
 	PacketCtrMin   int
+	PacketCtrMax   int
 	PacketCtrAvail int
 	//BufferSize      int
 	//BufferSizeArray []int
@@ -74,6 +75,8 @@ type BufferflowTinygPktMode struct {
 
 	// for packet ctr mode since we don't use Queue.go as our ctr, we do our own locking
 	packetCtrLock *sync.Mutex
+
+	testDropCtr int
 }
 
 func (b *BufferflowTinygPktMode) Init() {
@@ -116,8 +119,11 @@ func (b *BufferflowTinygPktMode) Init() {
 
 	// Packet Mode Counters
 	b.rePacketCtr, _ = regexp.Compile("\"f\":\\[\\d+,\\d+,(\\d+)")
-	b.PacketCtrMin = 16   // 3   // if you are at this many packet mode slots left, stop, don't go below it
-	b.PacketCtrAvail = 32 //6 // this is the default number that TinyG starts with
+	b.PacketCtrMin = 12   // 3   // if you are at this many packet mode slots left, stop, don't go below it
+	b.PacketCtrAvail = 30 //6 // this is the default number that TinyG starts with
+	b.PacketCtrMax = 30   // how many Line Mode packet counters there are
+
+	b.testDropCtr = 0
 
 	//b.StartSending = 20
 	//b.StopSending = 18
@@ -325,7 +331,7 @@ func (b *BufferflowTinygPktMode) BlockUntilReady(cmd string, id string) (bool, b
 	}
 
 	// let's yeild for 10ms just to give TinyG a chance to send us some damn data back
-	time.Sleep(1 * time.Millisecond)
+	//time.Sleep(1 * time.Millisecond)
 
 	return true, willHandleCompleteResponse
 }
@@ -377,13 +383,40 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 		//log.Printf("Working on element:%v, index:%v", element)
 		log.Printf("\t< %v", element)
 
+		// COMMENT THIS SECTION OUT WHEN IN PRODUCTION
+		// Random r:{} dropping for test cases
+		// We are getting stalled jobs in super random use cases, so what we need to do
+		// is test out how this algorithm performs during a re-sync to ask TinyG what our
+		// counters are at. So, randomly drop r:{}'s to mimic what takes hours to achieve
+		// in a real world test.
+		if b.reSlotDone.MatchString(element) {
+			// should we drop or not? how about we drop every 10th
+			b.testDropCtr++
+			if b.testDropCtr == 10 {
+				// drop the r:{}
+				log.Println("Dropping this line for test purposes: %v", element)
+				element = ""
+				b.testDropCtr = 0
+			}
+		}
+
 		//check for r:{} response indicating a gcode line has been processed
 		if b.reSlotDone.MatchString(element) {
 
 			// ok, a line has been processed, the if statement below better
 			// be guaranteed to be true, cuz if its not we did something wrong
 			if b.q.Len() > 0 {
+
 				doneCmd, id := b.q.Poll()
+
+				// Line Mode Counter decrement
+				// For now we are going back to the idea of decrementing the Line Mode counter
+				// on the receipt of a r:{} response and decrementing our local counter. This
+				// idea is like Character Counting and relies on the local variable being super
+				// accurate. We know an r:{} can occasionally get dropped on the floor and thus
+				// this approach needs an occasional stop-the-world re-sync, but on a normal per
+				// line basis we decrement on the r:{} to keep our local count up to date
+				b.onGotLineModeCounterFromTinyG(b.PacketCtrAvail + 1)
 
 				// Send cmd:"Complete" back
 				m := DataCmdComplete{"Complete", id, b.Port, b.q.LenOfCmds(), doneCmd}
@@ -485,72 +518,32 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 				log.Printf("\tWe should RARELY get here cuz we should have a command in the queue to dequeue when we get the r:{} response. If you see this debug stmt this is one of those few instances where TinyG sent us a r:{} not in response to a command we sent.")
 			}
 
-			// Packet Mode Counter
-			// In this mode we have to look at the footer and parse it to see how our packet ctr is doing
-			// A typical line looks like this:
-			// {"r":{"ej":1},"f":[3,0,4]}
-			pktCtrArr := b.rePacketCtr.FindStringSubmatch(element)
-			// if we got back an index 1 val (i.e. the digit) and it's parseable as an integer
-			// that means we got back the packet mode counter and can pivot off of it
-			if len(pktCtrArr) > 0 {
+			// Line Mode Counter
+			// We are now ignoring this data and resorting to decrementing when an r:{}
+			// is received instead. So the code above us is being used instead.
+			/*
+				// In this mode we have to look at the footer and parse it to see how our packet ctr is doing
+				// A typical line looks like this:
+				// {"r":{"ej":1},"f":[3,0,4]}
+				pktCtrArr := b.rePacketCtr.FindStringSubmatch(element)
+				// if we got back an index 1 val (i.e. the digit) and it's parseable as an integer
+				// that means we got back the packet mode counter and can pivot off of it
+				if len(pktCtrArr) > 0 {
 
-				// now make sure it really was an integer
-				if pktCtr, err5 := strconv.Atoi(pktCtrArr[1]); err5 == nil {
+					// now make sure it really was an integer
+					if pktCtr, err5 := strconv.Atoi(pktCtrArr[1]); err5 == nil {
 
-					// we got back a packet ctr
-
-					// set our current packet ctr to this val cuz it's authoritative
-					b.PacketCtrAvail = pktCtr
-
-					// now see if it's above our minimum. if it is make sure we're not paused
-					if b.PacketCtrAvail > b.PacketCtrMin {
-
-						// we can make sure we are not paused
-						if b.GetPaused() {
-							log.Printf("\tPacketCtrAvail: %v, we are paused so unpausing\n", b.PacketCtrAvail)
-
-							// we are paused, but we can't just go unpause ourself, because we may
-							// be manually paused. this means we have to do a double-check here
-							// and not just go unpausing ourself just cuz we think there's room in the buffer.
-							// this is because we could have just sent a ! to the tinyg. we may still
-							// get back some random r:{} after the ! was sent, and that would mean we think
-							// we can go sending more data, but really we can't cuz we were HARD Manually paused
-							if b.GetManualPaused() == false {
-
-								// we are not in a manual pause state, that means we can go ahead
-								// and unpause ourselves
-								b.SetPaused(false, 1) //set paused to false first, then release the hold on the buffer
-							} else {
-								log.Println("\tWe just got incoming r:{} so we could unpause, but since manual paused we will ignore until next time a r:{} comes in to unpause")
-							}
-						} else {
-							log.Printf("\tPacketCtrAvail: %v, not paused and ok to not be, so moving on...\n", b.PacketCtrAvail)
-						}
+						// what to do when we actually get back a Line Mode counter from TinyG
+						onGotLineModeCounterFromTinyG(pktCtr)
 
 					} else {
-
-						// the packet ctr is less than or equal to our minimum
-						if b.PacketCtrAvail == b.PacketCtrMin {
-							// TinyG just told us an incoming packet mode ctr and it is at our minimum.
-							// We should already be paused from the BlockUntilReady method.
-							if b.GetPaused() {
-								log.Printf("\tPacketCtrAvail: %v, we are paused and will stay paused\n", b.PacketCtrAvail)
-							} else {
-
-								log.Printf("\tPacketCtrAvail: %v, we are NOT paused so WARNING WARNING WARNING\n", b.PacketCtrAvail)
-							}
-						} else {
-							// It is less then our minimum which should never happen
-							log.Printf("\tPacketCtrAvail: %v, ERROR we should never be below our allowed minimum. That is BAD!!!\n", b.PacketCtrAvail)
-						}
+						log.Printf("\tERROR: We could not parse an integer from the footer packet mode ctr???\n")
 					}
-				} else {
-					log.Printf("\tERROR: We could not parse an integer from the footer packet mode ctr???\n")
-				}
 
-			} else {
-				log.Printf("\tERROR: We got an r:{} response but could not parse out the footer packet mode counter.\n")
-			}
+				} else {
+					log.Printf("\tERROR: We got an r:{} response but could not parse out the footer packet mode counter.\n")
+				}
+			*/
 
 		}
 
@@ -579,6 +572,56 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 
 	//time.Sleep(3000 * time.Millisecond)
 	log.Printf("OnIncomingData() End.\n")
+}
+
+func (b *BufferflowTinygPktMode) onGotLineModeCounterFromTinyG(pktCtr int) {
+	// we got back a packet ctr
+
+	// set our current packet ctr to this val cuz it's authoritative
+	b.PacketCtrAvail = pktCtr
+
+	// now see if it's above our minimum. if it is make sure we're not paused
+	if b.PacketCtrAvail > b.PacketCtrMin {
+
+		// we can make sure we are not paused
+		if b.GetPaused() {
+			log.Printf("\tPacketCtrAvail: %v, we are paused so unpausing\n", b.PacketCtrAvail)
+
+			// we are paused, but we can't just go unpause ourself, because we may
+			// be manually paused. this means we have to do a double-check here
+			// and not just go unpausing ourself just cuz we think there's room in the buffer.
+			// this is because we could have just sent a ! to the tinyg. we may still
+			// get back some random r:{} after the ! was sent, and that would mean we think
+			// we can go sending more data, but really we can't cuz we were HARD Manually paused
+			if b.GetManualPaused() == false {
+
+				// we are not in a manual pause state, that means we can go ahead
+				// and unpause ourselves
+				b.SetPaused(false, 1) //set paused to false first, then release the hold on the buffer
+			} else {
+				log.Println("\tWe just got incoming r:{} so we could unpause, but since manual paused we will ignore until next time a r:{} comes in to unpause")
+			}
+		} else {
+			log.Printf("\tPacketCtrAvail: %v, not paused and ok to not be, so moving on...\n", b.PacketCtrAvail)
+		}
+
+	} else {
+
+		// the packet ctr is less than or equal to our minimum
+		if b.PacketCtrAvail == b.PacketCtrMin {
+			// TinyG just told us an incoming packet mode ctr and it is at our minimum.
+			// We should already be paused from the BlockUntilReady method.
+			if b.GetPaused() {
+				log.Printf("\tPacketCtrAvail: %v, we are paused and will stay paused\n", b.PacketCtrAvail)
+			} else {
+
+				log.Printf("\tPacketCtrAvail: %v, we are NOT paused so WARNING WARNING WARNING\n", b.PacketCtrAvail)
+			}
+		} else {
+			// It is less then our minimum which should never happen
+			log.Printf("\tPacketCtrAvail: %v, ERROR we should never be below our allowed minimum. That is BAD!!!\n", b.PacketCtrAvail)
+		}
+	}
 }
 
 // Clean out b.sem so it can truly block
@@ -742,6 +785,7 @@ func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldSkipBuffer(cmd strin
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
+	// \x18 is Ctrl+X which resets TinyG
 	if match, _ := regexp.MatchString("[!~%]", cmd); match {
 		log.Printf("Found cmd that should skip buffer. cmd:%v\n", cmd)
 		return true
@@ -786,6 +830,17 @@ func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldWipeBuffer(cmd strin
 		//b.BufferSizeArray = nil
 		//b.BufferCmdArray = nil
 		//b.q.Delete()
+
+		b.onGotLineModeCounterFromTinyG(b.PacketCtrAvail + 1)
+
+		// We need to get a new Line Mode report after a buffer wipe, so automatically
+		// ask for a {rx:n} report after the wipe
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rx\\\":null}\\n\", \"Buf\":\"NoBuf\", \"Id\":\"internalWipe1\"}]}")
+
+		}()
+
 		return true
 	}
 	return false
@@ -810,6 +865,8 @@ func (b *BufferflowTinygPktMode) ReleaseLock() {
 	log.Println("Lock being released in TinyG buffer")
 
 	b.q.Delete()
+	//b.onGotLineModeCounterFromTinyG(b.PacketCtrAvail + 1)
+	b.PacketCtrAvail = b.PacketCtrMax
 	b.SetPaused(false, 2)
 	/*
 		// Since we're tweaking b.Paused lock all threads
