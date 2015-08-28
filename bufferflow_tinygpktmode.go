@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"regexp"
-	//"strconv"
+	"strconv"
 	"strings"
 	"sync"
 	//"time"
@@ -56,9 +56,13 @@ type BufferflowTinygPktMode struct {
 	//BufferMax int
 	rePacketCtr *regexp.Regexp
 
-	PacketCtrMin   int
-	PacketCtrMax   int
-	PacketCtrAvail int
+	PacketCtrMin       int
+	PacketCtrMax       int
+	PacketCtrAvail     int
+	isInReSyncMode     bool
+	reSyncCtr          int
+	reSyncCtrTriggerAt int
+
 	//BufferSize      int
 	//BufferSizeArray []int
 	//BufferCmdArray  []string
@@ -119,11 +123,13 @@ func (b *BufferflowTinygPktMode) Init() {
 
 	// Packet Mode Counters
 	b.rePacketCtr, _ = regexp.Compile("\"f\":\\[\\d+,\\d+,(\\d+)")
-	b.PacketCtrMin = 12   // 3   // if you are at this many packet mode slots left, stop, don't go below it
-	b.PacketCtrAvail = 30 //6 // this is the default number that TinyG starts with
-	b.PacketCtrMax = 30   // how many Line Mode packet counters there are
-
+	b.PacketCtrMin = 10   // 3   // if you are at this many packet mode slots left, stop, don't go below it
+	b.PacketCtrAvail = 24 //6 // main variable keeping track of how many Line Mode slots are avaialable in TinyG, this is the default number that TinyG starts with
+	b.PacketCtrMax = 24   // how many Line Mode packet counters there are max on the TinyG firmware
+	b.isInReSyncMode = false
 	b.testDropCtr = 0
+	b.reSyncCtr = 0
+	b.reSyncCtrTriggerAt = 41 // the number of processed Gcode lines that have us a trigger a resync
 
 	//b.StartSending = 20
 	//b.StopSending = 18
@@ -281,7 +287,30 @@ func (b *BufferflowTinygPktMode) BlockUntilReady(cmd string, id string) (bool, b
 
 	isNeedToUnlock := true
 
-	if b.PacketCtrAvail <= b.PacketCtrMin {
+	// count the amount of outbound lines that will get back an r:{} response
+	// and then re-sync after a set amount to reset our Line Mode counter
+	/*b.reSyncCtr++
+	if b.reSyncCtr >= b.reSyncCtrTriggerAt {
+
+		// we need to do a re-sync
+		b.reSyncStart()
+
+		// clear all b.sem signals so when we block below, we truly block
+		b.ClearOutSemaphore()
+
+		log.Println("\tBlocking on b.sem for re-sync until told from OnIncomingData to go")
+
+		// since we need other code to run while we're blocking, we better release the packet ctr lock
+		b.packetCtrLock.Unlock()
+
+		unblockType, ok := <-b.sem // will block until told from OnIncomingData to go
+
+		log.Printf("\tDone blocking for re-sync cuz got b.sem semaphore release. ok:%v, unblockType:%v\n", ok, unblockType)
+
+		// since we already unlocked this thread, note it so we don't doubly unlock
+		isNeedToUnlock = false
+
+	} else */if b.PacketCtrAvail <= b.PacketCtrMin {
 
 		log.Printf("\tThe PacketCtrAvail (%v) is at PacketCtrMin (%v), so we are going to pause.\n", b.PacketCtrAvail, b.PacketCtrMin)
 
@@ -389,16 +418,17 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 		// is test out how this algorithm performs during a re-sync to ask TinyG what our
 		// counters are at. So, randomly drop r:{}'s to mimic what takes hours to achieve
 		// in a real world test.
-		if b.reSlotDone.MatchString(element) {
+		/*if b.reSlotDone.MatchString(element) {
 			// should we drop or not? how about we drop every 10th
 			b.testDropCtr++
 			if b.testDropCtr == 10 {
 				// drop the r:{}
-				log.Println("Dropping this line for test purposes: %v", element)
+				log.Println("\tDropping this line for test purposes: %v", element)
 				element = ""
 				b.testDropCtr = 0
 			}
-		}
+		}*/
+		// END COMMENT THIS SECTION OUT WHEN IN PRODUCTION
 
 		//check for r:{} response indicating a gcode line has been processed
 		if b.reSlotDone.MatchString(element) {
@@ -416,7 +446,11 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 				// accurate. We know an r:{} can occasionally get dropped on the floor and thus
 				// this approach needs an occasional stop-the-world re-sync, but on a normal per
 				// line basis we decrement on the r:{} to keep our local count up to date
+				//if !b.isInReSyncMode {
 				b.onGotLineModeCounterFromTinyG(b.PacketCtrAvail + 1)
+				//} else {
+				//	log.Println("\tWe are in re-sync mode so this incoming r:{} will do nothing for us resetting Line Mode ctr until done with re-sync mode")
+				//}
 
 				// Send cmd:"Complete" back
 				m := DataCmdComplete{"Complete", id, b.Port, b.q.LenOfCmds(), doneCmd}
@@ -547,6 +581,21 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 
 		}
 
+		// see if we are in re-sync mode
+		if b.isInReSyncMode {
+
+			// if regexp.MatchString("{\"r\":\{\"rx\":", element) {
+			if b.reRxResponse.MatchString(element) {
+
+				log.Println("\tWe are in re-sync mode and looks like we just got our rx: response: %v", element)
+				b.reSyncEnd(element)
+
+			} else {
+				log.Println("\tIn re-sync mode, but this line was not an rx: val")
+			}
+
+		}
+
 		// handle communication back to client
 		// for base serial data (this is not the cmd:"Write" or cmd:"Complete")
 		m := DataPerLine{b.Port, element + "\n"}
@@ -572,6 +621,78 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 
 	//time.Sleep(3000 * time.Millisecond)
 	log.Printf("OnIncomingData() End.\n")
+}
+
+func (b *BufferflowTinygPktMode) reSyncStart() {
+
+	// Ok, this method is a stop-the-world approach to syncing our
+	// Line Mode counter with what TinyG says it should be. What we do
+	// is pause all outgoing traffic. Send a {rx:n} request and then
+	// only when we get this counter back do we reset our b.PacketAvailCtr
+	// to that count and we know it's authoritative again
+	log.Println("Re-sync: Started")
+
+	b.Pause()
+	b.isInReSyncMode = true
+
+	//b.Unpause()
+	go func() {
+		time.Sleep(1000 * time.Millisecond)
+		spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rx\\\":null}\\n\", \"Buf\":\"NoBuf\", \"Id\":\"resync1\"}]}")
+
+	}()
+	go func() {
+		time.Sleep(1200 * time.Millisecond)
+		spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rx\\\":null}\\n\", \"Buf\":\"NoBuf\", \"Id\":\"resync1\"}]}")
+
+	}()
+}
+
+func (b *BufferflowTinygPktMode) reSyncEnd(gcodeLine string) {
+
+	// Ok, this method is a stop-the-world approach to syncing our
+	// Line Mode counter with what TinyG says it should be. What we do
+	// is pause all outgoing traffic. Send a {rx:n} request and then
+	// only when we get this counter back do we reset our b.PacketAvailCtr
+	// to that count and we know it's authoritative again
+	//b.Pause()
+	b.isInReSyncMode = false
+	b.reSyncCtr = 0
+
+	// parse the incoming line so we can extract the counter
+	// SEND > {"rx":null}
+	// RECV < {"r":{"rx":30},"f":[3,0,30]}
+	reLineModeRxVal := regexp.MustCompile("\"rx\":(\\d+)")
+	lineRxCtrArr := reLineModeRxVal.FindStringSubmatch(gcodeLine)
+
+	// if we got back an index 1 val (i.e. the digit) and it's parseable as an integer
+	// that means we got back the packet mode counter and can pivot off of it
+	if len(lineRxCtrArr) > 0 {
+
+		// now make sure it really was an integer
+		if lineCtr, err5 := strconv.Atoi(lineRxCtrArr[1]); err5 == nil {
+
+			// what to do when we actually get back a Line Mode counter from TinyG
+			//b.onGotLineModeCounterFromTinyG(lineCtr)
+
+			// we just got back what we think is an authoritative answer
+			// let's spit out debug to see how far off we are
+			log.Printf("Re-sync got back authoritative answer. What we think we should have as available: %v, what TinyG just told us: %v\n", b.PacketCtrAvail, lineCtr)
+
+			// set our current packet ctr to this val cuz it's authoritative
+			b.PacketCtrAvail = lineCtr
+
+		} else {
+			log.Printf("\tERROR in Re-Sync: We could not parse an integer from the Line Mode ctr???\n")
+		}
+
+	} else {
+		log.Printf("\tERROR in Re-Sync: We got an r:{\"rx\":...} response but could not parse out the Line Mode counter.\n")
+	}
+
+	//b.Unpause()
+	log.Println("Re-sync: End")
+
 }
 
 func (b *BufferflowTinygPktMode) onGotLineModeCounterFromTinyG(pktCtr int) {
