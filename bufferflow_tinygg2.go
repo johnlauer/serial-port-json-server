@@ -176,6 +176,11 @@ func (b *BufferflowTinygG2) Init() {
 
 	//initialize query loop
 	//b.rxQueryLoop(b.parent_serport)
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rxm\\\":0}\\n\", \"Id\":\"internalInit0\"}]}")
+	}()
 }
 
 // Serial buffer size approach
