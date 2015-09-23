@@ -327,6 +327,11 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.86
+- Added "Pause" value in sendjson command so you can ask SPJS to pause after sending a serial command. This was needed because on Atmel processors during an EEPROM write all data is dropped that is sent in on the serial lines. To use this value, send in a sendjson command similar to the following:
+`sendjson {"P":"COM7","Data":[{"D":"{\"ej\":1}\n","Id":"tinygInit-cmd182","Pause":50}]}`
+- Added "tinyg_tidmode" buffer which is the most advanced buffer ever added to SPJS. This buffer uses a primary key for each line sent to TinyG and TinyG sends back the primary key as it processes each line. This means that SPJS will be in 100% perfect sync with TinyG. This will solve the longstanding hard-to-find bug where users would occasionally get random pausing because SPJS thought TinyG's buffer was full, but it really wasn't.
+
 Changes in 1.85
 - Moved back to original serial library that was used in 1.80 and away from the new one that the Arduino team added that was used in 1.83. Too many problems were happening with mangled characters in 1.83.
 

@@ -74,6 +74,7 @@ type Cmd struct {
 	id                         string
 	skippedBuffer              bool
 	willHandleCompleteResponse bool
+	pause                      int
 }
 
 type CmdComplete struct {
@@ -226,11 +227,17 @@ func (p *serport) writerBuffered() {
 	// sees something come in
 	for data := range p.sendBuffered {
 
-		//log.Printf("Got p.sendBuffered. data:%v, id:%v\n", string(data.data), string(data.id))
+		log.Printf("Got p.sendBuffered. data:%v, id:%v, pause:%v\n", string(data.data), string(data.id), data.pause)
 
 		// we want to block here if we are being asked
 		// to pause.
-		goodToGo, willHandleCompleteResponse := p.bufferwatcher.BlockUntilReady(string(data.data), data.id)
+		goodToGo, willHandleCompleteResponse, newGcode := p.bufferwatcher.BlockUntilReady(string(data.data), data.id)
+
+		// BlockUntilReady can modify our Gcode now so it can possibly add tracking data
+		// so if we got newGcode then we must swap it for our original gcode
+		if len(newGcode) > 0 {
+			data.data = newGcode
+		}
 
 		if goodToGo == false {
 			log.Println("We got back from BlockUntilReady() but apparently we must cancel this cmd")
@@ -238,7 +245,7 @@ func (p *serport) writerBuffered() {
 			p.itemsInBuffer--
 		} else {
 			// send to the non-buffered serial port writer
-			//log.Println("About to send to p.sendNoBuf channel")
+			log.Printf("About to send to p.sendNoBuf channel. cmd:%v", data)
 			data.willHandleCompleteResponse = willHandleCompleteResponse
 			p.sendNoBuf <- data
 		}
@@ -255,7 +262,7 @@ func (p *serport) writerNoBuf() {
 	// sees something come in
 	for data := range p.sendNoBuf {
 
-		log.Printf("Got p.sendNoBuf. id:%v, data:%v\n", string(data.id), strings.Replace(string(data.data), "\n", "\\n", -1))
+		log.Printf("Got p.sendNoBuf. id:%v, pause:%v, data:%v\n", string(data.id), data.pause, strings.Replace(string(data.data), "\n", "\\n", -1))
 
 		// if we get here, we were able to write successfully
 		// to the serial port because it blocks until it can write
@@ -310,6 +317,15 @@ func (p *serport) writerNoBuf() {
 		// FINALLY, OF ALL THE CODE IN THIS PROJECT
 		// WE TRULY/FINALLY GET TO WRITE TO THE SERIAL PORT!
 		_, err := p.portIo.Write([]byte(data.data)) // n2, err :=
+
+		// New Pause capability after we write. Added 9/23/15
+		// This was needed because many Atmel microcontrollers just plain drop serial data
+		// if it's being sent over while an EEPROM write is in play, so SPJS now
+		// let's the user specify a pause after a serial command to solve for this error
+		if data.pause > 0 {
+			log.Printf("We are sleeping after the port write for milliseconds:%v\n", data.pause)
+			time.Sleep(time.Duration(data.pause) * time.Millisecond)
+		}
 
 		// see if we need to send back the completeResponse
 		if data.willHandleCompleteResponse == false {
@@ -427,6 +443,12 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	} else if buftype == "tinyg_linemode" {
 
 		bw := &BufferflowTinygPktMode{Name: "tinyg_linemode", parent_serport: p}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
+	} else if buftype == "tinyg_tidmode" {
+
+		bw := &BufferflowTinygTidMode{Name: "tinyg_tidmode", parent_serport: p}
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw

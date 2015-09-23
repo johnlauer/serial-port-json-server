@@ -5,7 +5,7 @@ import (
 //"time"
 )
 
-var availableBufferAlgorithms = []string{"default", "tinyg", "tinyg_linemode", "tinygg2", "grbl", "marlin"}
+var availableBufferAlgorithms = []string{"default", "tinyg", "tinyg_linemode", "tinyg_tidmode", "tinygg2", "grbl", "marlin"}
 
 //var availableBufferAlgorithms = []string{"default", "tinyg", "tinygg2", "dummypause", "grbl"}
 
@@ -18,7 +18,7 @@ type BufferMsg struct {
 }
 
 type Bufferflow interface {
-	BlockUntilReady(cmd string, id string) (bool, bool) // implement this method
+	BlockUntilReady(cmd string, id string) (bool, bool, string) // implement this method
 	//JustQueue(cmd string, id string) bool                     // implement this method
 	OnIncomingData(data string)             // implement this method
 	ClearOutSemaphore()                     // implement this method
@@ -35,6 +35,7 @@ type Bufferflow interface {
 	ReleaseLock()                                             // implement this method
 	IsBufferGloballySendingBackIncomingData() bool            // implement this method
 	Close()                                                   // implement this method
+	RewriteSerialData(cmd string, id string) string           // implement this method
 }
 
 /*data packets returned to client*/

@@ -9,12 +9,12 @@ import (
 	"sync"
 	//"time"
 	//"errors"
-	"fmt"
+	//"fmt"
 	"runtime/debug"
 	"time"
 )
 
-type BufferflowTinygPktMode struct {
+type BufferflowTinygTidMode struct {
 	Name         string
 	Port         string
 	Paused       bool
@@ -86,7 +86,12 @@ type BufferflowTinygPktMode struct {
 	testDropCtr int
 }
 
-func (b *BufferflowTinygPktMode) Init() {
+type tidCmd struct {
+	Tid int    `json:"tid"`
+	Txt string `json:"txt"`
+}
+
+func (b *BufferflowTinygTidMode) Init() {
 
 	b.Paused = false
 	b.ManualPaused = false
@@ -121,7 +126,7 @@ func (b *BufferflowTinygPktMode) Init() {
 
 	//b.BufferSize = 0  //initialize buffer at zero bytes
 	b.q = NewQueueTid()
-	b.tidCtr = 0
+	b.tidCtr = 1
 
 	//b.lock = sync.Mutex
 	/* End Buffer Size Approach */
@@ -192,7 +197,9 @@ func (b *BufferflowTinygPktMode) Init() {
 
 	// this regexp catches !, ~, %, \n, $ by itself, or $$ by itself and indicates
 	// no r:{} response will come back so don't expect it
-	b.reNoResponse, _ = regexp.Compile("^[!~%\n$?]")
+	//b.reNoResponse, _ = regexp.Compile("^[!~%\n$?]")
+	//b.reNoResponse = regexp.MustCompile("^{sr:|^{\"sr\"")
+	b.reNoResponse = regexp.MustCompile("xxxxxxx") // for now pick something that will fail cuz we want to test our EVASIVE code
 
 	// if we get a cmd with a $ at the start or a ? at start, append
 	// a new command that will put tinyg back in json mode
@@ -212,11 +219,13 @@ func (b *BufferflowTinygPktMode) Init() {
 
 	//go spWrite("send " + b.parent_serport.portConf.Name + " {rxm:1}\n")
 
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rxm\\\":1}\\n\", \"Id\":\"internalInit0\"}]}")
+	/*
+		go func() {
+			time.Sleep(1 * time.Millisecond)
+			spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rxm\\\":1}\\n\", \"Id\":\"internalInit0\"}]}")
 
-	}()
+		}()
+	*/
 
 	/*
 		var wr writeRequest
@@ -248,18 +257,79 @@ func (b *BufferflowTinygPktMode) Init() {
 	b.parent_serport.sendBuffered <- cmd */
 }
 
-func (b *BufferflowTinygPktMode) RewriteSerialData(cmd string, id string) string {
-	return ""
+func (b *BufferflowTinygTidMode) RewriteSerialData(cmd string, id string) string {
+
+	newCmd := ""
+
+	// we are using our new Queue that tracks a "tid" or a transaction ID. This
+	// is a new feature of TinyG where we can send it a transaction id and it will
+	// send that tid back to us with the r:{} that corresponds to it so we can
+	// see if errors ever occur
+	tid := b.tidCtr
+	b.tidCtr++
+
+	// make sure we don't overflow the counter
+	if b.tidCtr >= 4294967295 {
+		log.Printf("\tWe need to reset the tidCtr cuz we got too high. Crazy! tidCtr:%v\n", b.tidCtr)
+		b.tidCtr = 1
+	}
+
+	//reRemoveInlineComment := regexp.MustCompile("\\(.*\\)")
+	//newCmd = b.reNewLine.ReplaceAllString(cmd, "")
+	newCmd = strings.TrimSpace(cmd)
+
+	// we need to swap in escape sequences for special commands
+	reSwapChars := regexp.MustCompile("^[!%~\u0018]")
+	if reSwapChars.MatchString(newCmd) {
+		log.Printf("\tWe have a cmd we must remap to unique json. cmd:%v\n", newCmd)
+		if len(newCmd) > 1 {
+			log.Printf("\tWARNING:With special commands they should be on their own line and this seems to have a length more than 1. Truncating. cmd:%v\n", newCmd)
+		}
+		if strings.HasPrefix(newCmd, "!") {
+			newCmd = "{\"!\":t,\"tid\":" + strconv.Itoa(tid) + "}"
+		} else if strings.HasPrefix(newCmd, "%") {
+			newCmd = "{\"%\":t,\"tid\":" + strconv.Itoa(tid) + "}"
+			//newCmd = "{%:t,tid:" + strconv.Itoa(tid) + "}"
+		} else if strings.HasPrefix(newCmd, "~") {
+			newCmd = "{\"~\":t,\"tid\":" + strconv.Itoa(tid) + "}"
+		} else if strings.HasPrefix(newCmd, "\u0018") {
+			newCmd = "{can:t,tid:" + strconv.Itoa(tid) + "}"
+		} else {
+			log.Printf("\tWe somehow did not match any prefix? Huh???\n")
+		}
+		newCmd += "\n"
+		log.Printf("\tFinal json of special char:%v", newCmd)
+	} else {
+
+		// we are dealing with a normal line of gcode here with no special chars
+
+		// create the tidCmd struct
+		tidTxt := tidCmd{Tid: tid, Txt: newCmd}
+		//log.Printf("tidCmd:%v\n", tidTxt)
+
+		bm, err := json.Marshal(tidTxt)
+		if err != nil {
+			log.Printf("\tGot err marshaling cmd. err:%v", err)
+		}
+		newCmd = string(bm)
+		newCmd += "\n"
+		log.Printf("\tmarshalled json:%v", newCmd)
+	}
+
+	b.q.Push(newCmd, id, tid)
+	b.PacketCtrAvail--
+
+	return newCmd
 }
 
 // Line Mode approach
-func (b *BufferflowTinygPktMode) BlockUntilReady(cmd string, id string) (bool, bool, string) {
+func (b *BufferflowTinygTidMode) BlockUntilReady(cmd string, id string) (bool, bool, string) {
 
 	// Lock the packet ctr at start and then end
 	b.packetCtrLock.Lock()
 
 	log.Printf("BlockUntilReady() Start\n")
-	log.Printf("\tid:%v, cmd:%v\n", id, strings.Replace(cmd, "\n", "\\n", -1))
+	log.Printf("\tid:%v, txt:%v\n", id, strings.Replace(cmd, "\n", "\\n", -1))
 
 	// if we mangle the gcode
 	newCmd := ""
@@ -270,50 +340,10 @@ func (b *BufferflowTinygPktMode) BlockUntilReady(cmd string, id string) (bool, b
 	isReturnsNoResponse := b.SeeIfSpecificCommandsReturnNoResponse(cmd)
 	if isReturnsNoResponse == false {
 
-		// we are using our new Queue that tracks a "tid" or a transaction ID. This
-		// is a new feature of TinyG where we can send it a transaction id and it will
-		// send that tid back to us with the r:{} that corresponds to it so we can
-		// see if errors ever occur
-		tid := b.tidCtr
-		b.tidCtr++
-		reRemoveInlineComment := regexp.MustCompile("\\(.*\\)")
-		//newCmd = b.reNewLine.ReplaceAllString(cmd, "")
-		newCmd = strings.TrimSpace(cmd)
+		// Normal Command - i.e. it returns response (which in TidMode is everything)
 
-		// see if this is trackable or not
-		// if it starts with $ or ? or % or ~ or ! or is a newline it is not trackable
-		reWillItNotGiveR := regexp.MustCompile("^[$?~!%]")
-		reIsItJson := regexp.MustCompile("^{")
-		reLastCurly := regexp.MustCompile("}$")
-		if len(newCmd) < 1 || reWillItNotGiveR.MatchString(newCmd) {
-			log.Printf("\tThis cmd will not give us back an R so track it that way. cmd: %v\n", newCmd)
-			tid = -1
-			b.tidCtr--
-		} else if reIsItJson.MatchString(newCmd) {
-			// this is json, inject a tid
-			log.Printf("\tThis cmd is JSON so we will add a parameter\n")
-			newCmd = reLastCurly.ReplaceAllString(newCmd, "")
-			newCmd = fmt.Sprintf("%v, tid:%v}\n", newCmd, tid)
-			// for now don't track cuz bugs
-			tid = -1
-			b.tidCtr--
-		} else {
-			log.Printf("\tThis cmd is Gcode and we will do an inline comment\n")
-			newCmd = reRemoveInlineComment.ReplaceAllString(newCmd, "")
-			newCmd = fmt.Sprintf("%v ({tid:%v})\n", newCmd, tid)
-		}
-		b.q.Push(newCmd, id, tid)
-		b.PacketCtrAvail--
+		newCmd = b.RewriteSerialData(cmd, id)
 
-		/*
-			log.Printf("Going to lock inside BlockUntilReady to up the BufferSize and Arrays\n")
-			b.lock.Lock()
-			b.BufferSize += len(cmd)
-			b.BufferSizeArray = append(b.BufferSizeArray, len(cmd))
-			b.BufferCmdArray = append(b.BufferCmdArray, cmd)
-			b.lock.Unlock()
-			log.Printf("Done locking inside BlockUntilReady to up the BufferSize and Arrays\n")
-		*/
 	} else {
 		// this is sketchy. could we overrun the buffer by not counting !~%\n
 		// so to give extra room don't actually allow full serial buffer to
@@ -323,6 +353,7 @@ func (b *BufferflowTinygPktMode) BlockUntilReady(cmd string, id string) (bool, b
 		// one other idea here is to go ahead and send this but add a {"rx":n} request after
 		// it so that we do get a packet mode ctr back, or to shove off a sub-process that
 		// asks for one 5 seconds later
+		log.Printf("\tThis command is not going to return a response. cmd:%v\n", cmd)
 
 	}
 
@@ -331,30 +362,7 @@ func (b *BufferflowTinygPktMode) BlockUntilReady(cmd string, id string) (bool, b
 
 	isNeedToUnlock := true
 
-	// count the amount of outbound lines that will get back an r:{} response
-	// and then re-sync after a set amount to reset our Line Mode counter
-	/*b.reSyncCtr++
-	if b.reSyncCtr >= b.reSyncCtrTriggerAt {
-
-		// we need to do a re-sync
-		b.reSyncStart()
-
-		// clear all b.sem signals so when we block below, we truly block
-		b.ClearOutSemaphore()
-
-		log.Println("\tBlocking on b.sem for re-sync until told from OnIncomingData to go")
-
-		// since we need other code to run while we're blocking, we better release the packet ctr lock
-		b.packetCtrLock.Unlock()
-
-		unblockType, ok := <-b.sem // will block until told from OnIncomingData to go
-
-		log.Printf("\tDone blocking for re-sync cuz got b.sem semaphore release. ok:%v, unblockType:%v\n", ok, unblockType)
-
-		// since we already unlocked this thread, note it so we don't doubly unlock
-		isNeedToUnlock = false
-
-	} else */if b.PacketCtrAvail <= b.PacketCtrMin {
+	if b.PacketCtrAvail <= b.PacketCtrMin {
 
 		log.Printf("\tThe PacketCtrAvail (%v) is at PacketCtrMin (%v), so we are going to pause.\n", b.PacketCtrAvail, b.PacketCtrMin)
 
@@ -410,7 +418,7 @@ func (b *BufferflowTinygPktMode) BlockUntilReady(cmd string, id string) (bool, b
 }
 
 // Serial buffer size approach
-func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
+func (b *BufferflowTinygTidMode) OnIncomingData(data string) {
 
 	//log.Printf("OnIncomingData() start. data:%q\n", data)
 	//log.Printf("< %q\n", data)
@@ -530,10 +538,15 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 							// been struggling with. so, it is most likely that the r:{} we just got is for the next
 							// line
 							nextLineDoneCmd, nextLineId, nextLineTidLocal := b.q.Poll()
+							b.PacketCtrAvail--
 							if nextLineTidLocal == tidRemote {
 								log.Printf("\tYup, the next line in our local queue matched, so we did miss an r:{} but we are back on track. remote tid: %v, nextLineTidLocal: %v, nextLineDoneCmd (local gcode): %v, nextLine local id: %v, remote r:{}: %v\n", tidRemote, nextLineTidLocal, nextLineDoneCmd, nextLineId, element)
 
 								b.onGotLineModeCounterFromTinyG(b.PacketCtrAvail + 1)
+
+								// since we found id and cmd, use them
+								id = nextLineId
+								doneCmd = nextLineDoneCmd
 
 								// Send cmd:"Complete" back
 								m := DataCmdComplete{"Complete", id, b.Port, b.q.LenOfCmds(), doneCmd}
@@ -564,6 +577,7 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 
 							// TODO: we need to put the b.q.Poll() back into the queue cuz it's not related
 							b.q.Shift(doneCmd, id, tidLocal)
+							b.PacketCtrAvail++
 
 						} else {
 
@@ -587,48 +601,6 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 
 			} else {
 				log.Printf("\tWe should RARELY get here cuz we should have a command in the queue to dequeue when we get the r:{} response. If you see this debug stmt this is one of those few instances where TinyG sent us a r:{} not in response to a command we sent.")
-			}
-
-			// Line Mode Counter
-			// We are now ignoring this data and resorting to decrementing when an r:{}
-			// is received instead. So the code above us is being used instead.
-			/*
-				// In this mode we have to look at the footer and parse it to see how our packet ctr is doing
-				// A typical line looks like this:
-				// {"r":{"ej":1},"f":[3,0,4]}
-				pktCtrArr := b.rePacketCtr.FindStringSubmatch(element)
-				// if we got back an index 1 val (i.e. the digit) and it's parseable as an integer
-				// that means we got back the packet mode counter and can pivot off of it
-				if len(pktCtrArr) > 0 {
-
-					// now make sure it really was an integer
-					if pktCtr, err5 := strconv.Atoi(pktCtrArr[1]); err5 == nil {
-
-						// what to do when we actually get back a Line Mode counter from TinyG
-						onGotLineModeCounterFromTinyG(pktCtr)
-
-					} else {
-						log.Printf("\tERROR: We could not parse an integer from the footer packet mode ctr???\n")
-					}
-
-				} else {
-					log.Printf("\tERROR: We got an r:{} response but could not parse out the footer packet mode counter.\n")
-				}
-			*/
-
-		}
-
-		// see if we are in re-sync mode
-		if b.isInReSyncMode {
-
-			// if regexp.MatchString("{\"r\":\{\"rx\":", element) {
-			if b.reRxResponse.MatchString(element) {
-
-				log.Println("\tWe are in re-sync mode and looks like we just got our rx: response: %v", element)
-				b.reSyncEnd(element)
-
-			} else {
-				log.Println("\tIn re-sync mode, but this line was not an rx: val")
 			}
 
 		}
@@ -660,7 +632,7 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 	log.Printf("OnIncomingData() End.\n")
 }
 
-func (b *BufferflowTinygPktMode) reSyncStart() {
+func (b *BufferflowTinygTidMode) reSyncStart() {
 
 	// Ok, this method is a stop-the-world approach to syncing our
 	// Line Mode counter with what TinyG says it should be. What we do
@@ -685,7 +657,7 @@ func (b *BufferflowTinygPktMode) reSyncStart() {
 	}()
 }
 
-func (b *BufferflowTinygPktMode) reSyncEnd(gcodeLine string) {
+func (b *BufferflowTinygTidMode) reSyncEnd(gcodeLine string) {
 
 	// Ok, this method is a stop-the-world approach to syncing our
 	// Line Mode counter with what TinyG says it should be. What we do
@@ -732,7 +704,7 @@ func (b *BufferflowTinygPktMode) reSyncEnd(gcodeLine string) {
 
 }
 
-func (b *BufferflowTinygPktMode) onGotLineModeCounterFromTinyG(pktCtr int) {
+func (b *BufferflowTinygTidMode) onGotLineModeCounterFromTinyG(pktCtr int) {
 	// we got back a packet ctr
 
 	// set our current packet ctr to this val cuz it's authoritative
@@ -783,7 +755,7 @@ func (b *BufferflowTinygPktMode) onGotLineModeCounterFromTinyG(pktCtr int) {
 }
 
 // Clean out b.sem so it can truly block
-func (b *BufferflowTinygPktMode) ClearOutSemaphore() {
+func (b *BufferflowTinygTidMode) ClearOutSemaphore() {
 	ctr := 0
 
 	keepLooping := true
@@ -808,7 +780,7 @@ func (b *BufferflowTinygPktMode) ClearOutSemaphore() {
 // break commands into individual commands
 // so, for example, break on newlines to separate commands
 // or, in the case of ~% break those onto separate commands
-func (b *BufferflowTinygPktMode) BreakApartCommands(cmd string) []string {
+func (b *BufferflowTinygTidMode) BreakApartCommands(cmd string) []string {
 	// add newline after !~%
 	reSingle := regexp.MustCompile("([!~%])")
 	cmd = reSingle.ReplaceAllString(cmd, "$1\n")
@@ -896,7 +868,7 @@ func (b *BufferflowTinygPktMode) BreakApartCommands(cmd string) []string {
 	return newFinalCmds
 }
 
-func (b *BufferflowTinygPktMode) Pause() {
+func (b *BufferflowTinygTidMode) Pause() {
 
 	// Since we're tweaking b.Paused lock all threads
 	//b.lock.Lock()
@@ -908,7 +880,7 @@ func (b *BufferflowTinygPktMode) Pause() {
 	log.Println("Paused buffer")
 }
 
-func (b *BufferflowTinygPktMode) Unpause() {
+func (b *BufferflowTinygTidMode) Unpause() {
 
 	// Since we're tweaking b.Paused lock all threads
 	//b.lock.Lock()
@@ -939,7 +911,7 @@ func (b *BufferflowTinygPktMode) Unpause() {
 	log.Println("Unpaused buffer") // inside BlockUntilReady() call")
 }
 
-func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool {
+func (b *BufferflowTinygTidMode) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool {
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -951,7 +923,7 @@ func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldSkipBuffer(cmd strin
 	return false
 }
 
-func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) bool {
+func (b *BufferflowTinygTidMode) SeeIfSpecificCommandsShouldPauseBuffer(cmd string) bool {
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -962,7 +934,7 @@ func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldPauseBuffer(cmd stri
 	return false
 }
 
-func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bool {
+func (b *BufferflowTinygTidMode) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd string) bool {
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -973,7 +945,7 @@ func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldUnpauseBuffer(cmd st
 	return false
 }
 
-func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool {
+func (b *BufferflowTinygTidMode) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bool {
 	// remove comments
 	cmd = b.reComment.ReplaceAllString(cmd, "")
 	cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -1004,7 +976,7 @@ func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsShouldWipeBuffer(cmd strin
 	return false
 }
 
-func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsReturnNoResponse(cmd string) bool {
+func (b *BufferflowTinygTidMode) SeeIfSpecificCommandsReturnNoResponse(cmd string) bool {
 	// remove comments
 	//cmd = b.reComment.ReplaceAllString(cmd, "")
 	//cmd = b.reComment2.ReplaceAllString(cmd, "")
@@ -1019,7 +991,7 @@ func (b *BufferflowTinygPktMode) SeeIfSpecificCommandsReturnNoResponse(cmd strin
 // This is called if user wiped entire buffer of gcode commands queued up
 // which is up to 25,000 of them. So, we need to release the OnBlockUntilReady()
 // in a way where the command will not get executed, so send unblockType of 2
-func (b *BufferflowTinygPktMode) ReleaseLock() {
+func (b *BufferflowTinygTidMode) ReleaseLock() {
 	log.Println("Lock being released in TinyG buffer")
 
 	b.q.Delete()
@@ -1059,7 +1031,7 @@ func (b *BufferflowTinygPktMode) ReleaseLock() {
 	*/
 }
 
-func (b *BufferflowTinygPktMode) IsBufferGloballySendingBackIncomingData() bool {
+func (b *BufferflowTinygTidMode) IsBufferGloballySendingBackIncomingData() bool {
 	// we want to send back incoming data as per line data
 	// rather than having the default spjs implemenation that sends back data
 	// as it sees it. the reason is that we were getting packets out of order
@@ -1075,7 +1047,7 @@ func (b *BufferflowTinygPktMode) IsBufferGloballySendingBackIncomingData() bool 
 //Use this function to open a connection, write directly to serial port and close connection.
 //This is used for sending query requests outside of the normal buffered operations that will pause to wait for room in the grbl buffer
 //'?' is asynchronous to the normal buffer load and does not need to be paused when buffer full
-func (b *BufferflowTinygPktMode) rxQueryLoop(p *serport) {
+func (b *BufferflowTinygTidMode) rxQueryLoop(p *serport) {
 	b.parent_serport = p //make note of this port for use in clearing the buffer later, on error.
 	ticker := time.NewTicker(5000 * time.Millisecond)
 	b.quit = make(chan int)
@@ -1105,7 +1077,7 @@ func (b *BufferflowTinygPktMode) rxQueryLoop(p *serport) {
 	}()
 }
 
-func (b *BufferflowTinygPktMode) Close() {
+func (b *BufferflowTinygTidMode) Close() {
 	//stop the rx query loop when the serial port is closed off.
 	log.Println("Stopping the RX query loop")
 	b.ReleaseLock()
@@ -1117,7 +1089,7 @@ func (b *BufferflowTinygPktMode) Close() {
 
 //	Gets the paused state of this buffer
 //	go-routine safe.
-func (b *BufferflowTinygPktMode) GetPaused() bool {
+func (b *BufferflowTinygTidMode) GetPaused() bool {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	return b.Paused
@@ -1125,7 +1097,7 @@ func (b *BufferflowTinygPktMode) GetPaused() bool {
 
 //	Sets the paused state of this buffer
 //	go-routine safe.
-func (b *BufferflowTinygPktMode) SetPaused(isPaused bool, semRelease int) {
+func (b *BufferflowTinygTidMode) SetPaused(isPaused bool, semRelease int) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	b.Paused = isPaused
@@ -1156,41 +1128,41 @@ func (b *BufferflowTinygPktMode) SetPaused(isPaused bool, semRelease int) {
 	//}()
 }
 
-func (b *BufferflowTinygPktMode) GetManualPaused() bool {
+func (b *BufferflowTinygTidMode) GetManualPaused() bool {
 	b.manualLock.Lock()
 	defer b.manualLock.Unlock()
 	return b.ManualPaused
 }
 
-func (b *BufferflowTinygPktMode) SetManualPaused(isPaused bool) {
+func (b *BufferflowTinygTidMode) SetManualPaused(isPaused bool) {
 	b.manualLock.Lock()
 	defer b.manualLock.Unlock()
 	b.ManualPaused = isPaused
 }
 
-func (b *BufferflowTinygPktMode) PacketCtrGet() int {
+func (b *BufferflowTinygTidMode) PacketCtrGet() int {
 	b.packetCtrLock.Lock()
 	defer b.packetCtrLock.Unlock()
 	return b.PacketCtrAvail
 }
-func (b *BufferflowTinygPktMode) PacketCtrSet(val int) {
+func (b *BufferflowTinygTidMode) PacketCtrSet(val int) {
 	b.packetCtrLock.Lock()
 	defer b.packetCtrLock.Unlock()
 	b.PacketCtrAvail = val
 }
-func (b *BufferflowTinygPktMode) PacketCtrDecr() int {
+func (b *BufferflowTinygTidMode) PacketCtrDecr() int {
 	b.packetCtrLock.Lock()
 	defer b.packetCtrLock.Unlock()
 	b.PacketCtrAvail--
 	return b.PacketCtrAvail
 }
-func (b *BufferflowTinygPktMode) PacketCtrIncr() int {
+func (b *BufferflowTinygTidMode) PacketCtrIncr() int {
 	b.packetCtrLock.Lock()
 	defer b.packetCtrLock.Unlock()
 	b.PacketCtrAvail++
 	return b.PacketCtrAvail
 }
-func (b *BufferflowTinygPktMode) PacketCtrIsTooLow() bool {
+func (b *BufferflowTinygTidMode) PacketCtrIsTooLow() bool {
 	b.packetCtrLock.Lock()
 	defer b.packetCtrLock.Unlock()
 	if b.PacketCtrAvail <= b.PacketCtrMin {

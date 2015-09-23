@@ -246,8 +246,12 @@ func (b *BufferflowTinyg) Init() {
 	}()
 }
 
+func (b *BufferflowTinyg) RewriteSerialData(cmd string, id string) string {
+	return ""
+}
+
 // Serial buffer size approach
-func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
+func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool, string) {
 	log.Printf("BlockUntilReady(cmd:%v, id:%v) start\n", cmd, id)
 
 	// Since BlockUntilReady is in the writer thread, lock so the reader
@@ -310,7 +314,7 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 			log.Println("This was an unblock of type 2, which means we're being asked to wipe internal buffer. so return false.")
 			// returning false asks the calling method to wipe the serial send once
 			// this function returns
-			return false, false
+			return false, false, ""
 		}
 	}
 
@@ -324,7 +328,7 @@ func (b *BufferflowTinyg) BlockUntilReady(cmd string, id string) (bool, bool) {
 
 	//log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
 
-	return true, willHandleCompleteResponse
+	return true, willHandleCompleteResponse, ""
 }
 
 // Serial buffer size approach

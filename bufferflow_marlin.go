@@ -59,7 +59,11 @@ func (b *BufferflowMarlin) Init() {
 	b.rptQueryLoop(b.parent_serport) // Disable the query loop
 }
 
-func (b *BufferflowMarlin) BlockUntilReady(cmd string, id string) (bool, bool) {
+func (b *BufferflowMarlin) RewriteSerialData(cmd string, id string) string {
+	return ""
+}
+
+func (b *BufferflowMarlin) BlockUntilReady(cmd string, id string) (bool, bool, string) {
 	log.Printf("BlockUntilReady() start\n")
 
 	b.q.Push(cmd, id)
@@ -90,12 +94,12 @@ func (b *BufferflowMarlin) BlockUntilReady(cmd string, id string) (bool, bool) {
 			log.Println("This was an unblock of type 2, which means we're being asked to wipe internal buffer. so return false.")
 			// returning false asks the calling method to wipe the serial send once
 			// this function returns
-			return false, false
+			return false, false, ""
 		}
 
 		log.Printf("BlockUntilReady(cmd:%v, id:%v) end\n", cmd, id)
 	}
-	return true, true
+	return true, true, ""
 }
 
 func (b *BufferflowMarlin) OnIncomingData(data string) {

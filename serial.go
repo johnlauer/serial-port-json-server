@@ -26,6 +26,7 @@ type writeRequest struct {
 	d      string
 	buffer bool
 	id     string
+	pause  int
 }
 
 type writeRequestJson struct {
@@ -35,9 +36,10 @@ type writeRequestJson struct {
 }
 
 type writeRequestJsonData struct {
-	D   string
-	Id  string
-	Buf string
+	D     string
+	Id    string
+	Buf   string
+	Pause int
 }
 
 type qReportJson struct {
@@ -52,6 +54,7 @@ type qReportJsonData struct {
 	Id    string
 	Buf   string `json:"-"`
 	Parts int    `json:"-"`
+	Pause int
 }
 
 type qReport struct {
@@ -172,6 +175,9 @@ func writeJson(wrj writeRequestJson) {
 		}
 		//write(wr, cmdJson.Id, true)
 
+		// handle our new pause value as of 9/23/15
+		wr.pause = cmdJson.Pause
+
 		// we are sending 1 cmd in, but we may get back multiple cmds
 		// because the BreakApartCommands() can add/modify stuff, so keep
 		// that in mind
@@ -194,6 +200,12 @@ func writeJson(wrj writeRequestJson) {
 				// else use the buffer type figured out in createCommands()
 				qrd.Buf = bufTypeArr[index]
 			}
+
+			// handle pause value
+			// when a user sends in multiple lines in one command and we break it apart,
+			// just assume that the pause will be the same on subsequent lines
+			qrd.Pause = cmdJson.Pause
+
 			qReportDataArr = append(qReportDataArr, qrd)
 
 		}
@@ -214,11 +226,21 @@ func writeJson(wrj writeRequestJson) {
 	for _, qrd := range qReportDataArr {
 
 		if qrd.Buf == "Buf" {
+
 			//log.Println("Json sending to wr.p.sendBuffered")
-			wrj.p.sendBuffered <- Cmd{qrd.D, qrd.Id, false, false}
+			wrj.p.sendBuffered <- Cmd{qrd.D, qrd.Id, false, false, qrd.Pause}
+
 		} else {
-			log.Println("Json sending to wr.p.sendNoBuf")
-			wrj.p.sendNoBuf <- Cmd{qrd.D, qrd.Id, true, false}
+			//log.Println("Json sending to wr.p.sendNoBuf")
+
+			// Need to see if we should rewrite the serial command though
+			newCmd := wrj.p.bufferwatcher.RewriteSerialData(qrd.D, qrd.Id)
+			if len(newCmd) > 0 {
+				qrd.D = newCmd
+				log.Printf("The serial data got rewritten on a NoBuf cmd. new cmd:%v", qrd.D)
+			}
+
+			wrj.p.sendNoBuf <- Cmd{qrd.D, qrd.Id, true, false, qrd.Pause}
 		}
 	}
 
@@ -250,11 +272,17 @@ func write(wr writeRequest, id string) {
 		//cmdId := "fakeid-" + strconv.Itoa(cmdIdCtr)
 		cmdId := idArr[index]
 		if bufTypeArr[index] == "Buf" {
-			log.Println("Send was normal send, so sending to wr.p.sendBuffered")
-			wr.p.sendBuffered <- Cmd{cmdToSendToChannel, cmdId, false, false}
+			//log.Println("Send was normal send, so sending to wr.p.sendBuffered")
+			wr.p.sendBuffered <- Cmd{cmdToSendToChannel, cmdId, false, false, 0}
 		} else {
-			log.Println("Send was sendnobuf, so sending to wr.p.sendNoBuf")
-			wr.p.sendNoBuf <- Cmd{cmdToSendToChannel, cmdId, true, false}
+			//log.Println("Send was sendnobuf, so sending to wr.p.sendNoBuf")
+			// Need to see if we should rewrite the serial command though
+			newCmd := wr.p.bufferwatcher.RewriteSerialData(cmdToSendToChannel, cmdId)
+			if len(newCmd) > 0 {
+				cmdToSendToChannel = newCmd
+				log.Printf("The serial data got rewritten on a NoBuf. new cmd:%v", cmdToSendToChannel)
+			}
+			wr.p.sendNoBuf <- Cmd{cmdToSendToChannel, cmdId, true, false, 0}
 		}
 	}
 

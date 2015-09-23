@@ -15,7 +15,11 @@ type BufferflowDummypause struct {
 func (b *BufferflowDummypause) Init() {
 }
 
-func (b *BufferflowDummypause) BlockUntilReady(cmd string, id string) (bool, bool) {
+func (b *BufferflowDummypause) RewriteSerialData(cmd string, id string) string {
+	return ""
+}
+
+func (b *BufferflowDummypause) BlockUntilReady(cmd string, id string) (bool, bool, string) {
 	log.Printf("BlockUntilReady() start. numLines:%v\n", b.NumLines)
 	log.Printf("buffer:%v\n", b)
 	//for b.Paused {
@@ -23,7 +27,7 @@ func (b *BufferflowDummypause) BlockUntilReady(cmd string, id string) (bool, boo
 	time.Sleep(3000 * time.Millisecond)
 	//}
 	log.Printf("BlockUntilReady() end\n")
-	return true, false
+	return true, false, ""
 }
 
 func (b *BufferflowDummypause) OnIncomingData(data string) {

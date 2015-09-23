@@ -18,9 +18,13 @@ func (b *BufferflowDefault) Init() {
 	log.Println("Initting default buffer flow (which means no buffering)")
 }
 
-func (b *BufferflowDefault) BlockUntilReady(cmd string, id string) (bool, bool) {
+func (b *BufferflowDefault) RewriteSerialData(cmd string, id string) string {
+	return ""
+}
+
+func (b *BufferflowDefault) BlockUntilReady(cmd string, id string) (bool, bool, string) {
 	//log.Printf("BlockUntilReady() start\n")
-	return true, false
+	return true, false, ""
 }
 
 func (b *BufferflowDefault) OnIncomingData(data string) {
