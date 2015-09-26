@@ -245,7 +245,7 @@ func (p *serport) writerBuffered() {
 			p.itemsInBuffer--
 		} else {
 			// send to the non-buffered serial port writer
-			log.Printf("About to send to p.sendNoBuf channel. cmd:%v", data)
+			//log.Printf("About to send to p.sendNoBuf channel. cmd:%v", data)
 			data.willHandleCompleteResponse = willHandleCompleteResponse
 			p.sendNoBuf <- data
 		}
@@ -269,7 +269,7 @@ func (p *serport) writerNoBuf() {
 
 		// decrement counter
 		p.itemsInBuffer--
-		log.Printf("itemsInBuffer:%v\n", p.itemsInBuffer)
+		log.Printf("Items In SPJS Queue List:%v\n", p.itemsInBuffer)
 		//h.broadcastSys <- []byte("{\"Cmd\":\"Write\",\"QCnt\":" + strconv.Itoa(p.itemsInBuffer) + ",\"Byte\":" + strconv.Itoa(n2) + ",\"Port\":\"" + p.portConf.Name + "\"}")
 
 		// Figure out buffered or not buffered
@@ -434,6 +434,13 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
+	} else if buftype == "tinyg_v2" {
+
+		bw := &BufferflowTinygV2{Name: "tinyg_v2", parent_serport: p}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
+
 	} else if buftype == "tinygg2" {
 
 		bw := &BufferflowTinygG2{Name: "tinygg2", parent_serport: p}

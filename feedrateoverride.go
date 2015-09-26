@@ -12,7 +12,10 @@ import (
 var (
 	reFeedrate         = regexp.MustCompile("(?i)F(\\d+\\.{0,1}\\d*)")
 	isFroNeedTriggered = false
-	currentFeedrate    = -1.0
+	isFroOn            = false
+	//fro = 0.0
+	currentFeedrate  = -1.0
+	lastFeedrateSeen = -1.0
 )
 
 type froRequestJson struct {
@@ -20,6 +23,7 @@ type froRequestJson struct {
 	Desc             string
 	Port             string
 	FeedRateOverride float32
+	IsOn             bool
 }
 
 // This is called from hub.go to actually parse the "fro COM7 1.5" command sent by the user
@@ -45,6 +49,7 @@ func spFeedRateOverride(arg string) {
 
 	if !isFound {
 		// we couldn't find the port, so send err
+		//isFroOn = false
 		spErr("We could not find the serial port " + portname + " that you were trying to apply the feedrate override to.")
 		return
 	}
@@ -66,6 +71,15 @@ func spFeedRateOverride(arg string) {
 	frj.Port = myport.portConf.Name
 	frj.Desc = "Successfully set the feedrate override."
 
+	if frj.FeedRateOverride <= 0.0 {
+		isFroOn = false
+		log.Println("User turned off feedrate override by setting it to 0")
+		frj.IsOn = false
+	} else {
+		isFroOn = true
+		frj.IsOn = true
+	}
+
 	ls, err := json.MarshalIndent(frj, "", "\t")
 	if err != nil {
 		log.Println(err)
@@ -80,13 +94,28 @@ func spFeedRateOverride(arg string) {
 	// if we made it this far we truly have a feedrate override in play
 	// so set boolean that we need to inject it into the next line
 	isFroNeedTriggered = true
+
 }
 
 // Here is where we actually apply the feedrate override on a line of gcode
 func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 
+	//log.Println("Feed Rate Override Start")
+	// any way we cut this, we MUST extract the feedrate from every line whether
+	// fro is on or not because we need the currentFeedrate the moment the user asks
+	// us to turn this on
+	strArrFsSeen := reFeedrate.FindAllStringSubmatch(str, -1)
+	if len(strArrFsSeen) > 0 {
+		// we found some feedrate F values, so let's store it
+		log.Printf("\tFRO: F's found:%v", strArrFsSeen)
+		justFoundFeedrate := strArrFsSeen[len(strArrFsSeen)-1][1]
+		lastFeedrateSeen, _ = strconv.ParseFloat(justFoundFeedrate, 64)
+		currentFeedrate = lastFeedrateSeen
+		log.Printf("\tFRO: Found an F so storing it for reference. lastFeedrateSeen:%v", lastFeedrateSeen)
+	}
+
 	if feedrateoverride == 0.0 && !isFroNeedTriggered {
-		log.Println("Feedrate is nil or 0.0 so returning")
+		log.Println("\tFRO: Feed Rate override is 0.0 so returning")
 		return false, ""
 	}
 
@@ -100,23 +129,23 @@ func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 	//strArr := re.FindAllString(str, -1)
 	//fmt.Println(strArr)
 	strArr2 := reFeedrate.FindAllStringSubmatch(str, -1)
-	log.Println(strArr2)
+	//log.Println(strArr2)
 	if len(strArr2) == 0 {
 
-		log.Println("No match found for feedrateoverride.")
+		log.Println("\tFRO: No match found for feedrateoverride.")
 
 		// see if the user asked for a feedrate override though
 		// if they did, we need to inject one because we didn't find one to adjust
 		if isFroNeedTriggered {
 
-			log.Printf("We need to inject a feedrate...\n")
+			log.Printf("\tFRO: We need to inject a feedrate...\n")
 
 			if currentFeedrate == -1.0 {
 
 				// this means we have no idea what the current feedrate is. that means
 				// the gcode before us never specified it ever so we are stuck and can't
 				// create the override
-				log.Println("We have no idea what the current feedrate is, so giving up")
+				log.Println("\tFRO: We have no idea what the current feedrate is, so giving up")
 				return false, ""
 
 			} else {
@@ -129,10 +158,10 @@ func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 
 				// if we get here we need to inject an F at the end of the line
 				injectFr := currentFeedrate * float64(myFro)
-				log.Printf("We do know the current feedrate: %v, so we will inject: F%v\n", currentFeedrate, injectFr)
+				log.Printf("\tFRO: We do know the current feedrate: %v, so we will inject: F%v\n", currentFeedrate, injectFr)
 
 				str = str + "F" + FloatToString(injectFr)
-				log.Printf("New gcode line: %v\n", str)
+				log.Printf("\tFRO: New gcode line: %v\n", str)
 
 				// set to false so next time through we don't inject again
 				isFroNeedTriggered = false
@@ -144,7 +173,7 @@ func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 
 		// no match found for feedrate, but also there is no need for an injection
 		// so returning
-		log.Println("No need for injection of feedrate either cuz user never asked. Returning.")
+		log.Printf("\tFRO: No need for injection of feedrate either cuz user never asked. currentFeedrate:%v. Returning.", currentFeedrate)
 		return false, ""
 	}
 
@@ -152,7 +181,7 @@ func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 	isFroNeedTriggered = false
 
 	indxArr := reFeedrate.FindAllStringSubmatchIndex(str, -1)
-	log.Println(indxArr)
+	//log.Println(indxArr)
 
 	fro := float64(feedrateoverride)
 	//fro := float64(2.6)
@@ -169,27 +198,31 @@ func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 	for i := len(strArr2) - 1; i >= 0; i-- {
 
 		itemArr := strArr2[i]
-		log.Println(itemArr)
+		//log.Println(itemArr)
 
 		fr, err := strconv.ParseFloat(itemArr[1], 32)
 		if err != nil {
-			log.Println("Error parsing feedrate val", err)
+			log.Println("\tFRO: Error parsing feedrate val", err)
 		} else {
 
 			// set this as current feedrate
 			if !isAlreadySetCurrentFeedrate {
 				currentFeedrate = fr
 				isAlreadySetCurrentFeedrate = true
-				log.Printf("Just set current feedrate: %v\n", currentFeedrate)
+				log.Printf("\tFRO: Just set current feedrate: %v\n", currentFeedrate)
 			}
 
-			newFr := fr * fro
-			log.Println(newFr)
+			// only if fro is on should we proceed with the actual swap
+			if isFroOn == true {
 
-			// swap out the string for our new string
-			// because we are looping in reverse, these indexes are valid
-			str = str[:indxArr[i][2]] + FloatToString(newFr) + str[indxArr[i][3]:]
-			log.Println(strings.Replace(str, "\n", "\\n", -1))
+				newFr := fr * fro
+				//log.Println(newFr)
+
+				// swap out the string for our new string
+				// because we are looping in reverse, these indexes are valid
+				str = str[:indxArr[i][2]] + FloatToString(newFr) + str[indxArr[i][3]:]
+				log.Println("\tFRO: " + strings.Replace(str, "\n", "\\n", -1))
+			}
 		}
 
 	}
