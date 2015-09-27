@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"regexp"
-	"strconv"
+	//"strconv"
 	"strings"
 	"sync"
 	//"time"
@@ -135,14 +135,12 @@ func (b *BufferflowTinygV2) Init() {
 
 	go func() {
 		time.Sleep(2500 * time.Millisecond)
-		spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rxm\\\":0}\\n\", \"Id\":\"internalInit0\", \"Pause\":50}]}")
+		//spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rxm\\\":0}\\n\", \"Id\":\"internalInit0\", \"Pause\":50}]}")
 
 	}()
 }
 
 func (b *BufferflowTinygV2) RewriteSerialData(cmd string, id string) string {
-
-	b.q.Push(cmd, id)
 
 	return ""
 }
@@ -170,17 +168,19 @@ func (b *BufferflowTinygV2) BlockUntilReady(cmd string, id string) (bool, bool, 
 		// Normal Command - i.e. it returns response
 
 		newCmd = b.RewriteSerialData(cmd, id)
+		b.q.Push(cmd, id)
+		log.Printf("\tWe have cmd that returns response. cmd:%v\n", strings.Replace(cmd, "\n", "\\n", -1))
 
 	} else {
 
 		// this is sketchy. could we overrun the buffer by not counting !~%\n
 		// so to give extra room don't actually allow full serial buffer to
 		// be used in b.BufferMax
-		log.Printf("\tWe have cmd that returns no response, so not incrementing buffer size for cmd:%v\n", cmd)
+		log.Printf("\tWe have cmd that returns no response, so not incrementing buffer size for cmd:%v\n", strings.Replace(cmd, "\n", "\\n", -1))
 
 	}
 
-	log.Printf("\tLen of cmd: %v, new len of local queue:%v\n", len(cmd), b.q.LenOfCmds())
+	log.Printf("\tLen of cmd: %v, new len of local queue:%v, debugStr:%v\n", len(cmd), b.q.LenOfCmds(), b.q.DebugStr())
 
 	if b.q.LenOfCmds() >= b.BufferMax {
 		b.SetPaused(true, 0) // b.Paused = true
@@ -236,6 +236,9 @@ func (b *BufferflowTinygV2) BlockUntilReady(cmd string, id string) (bool, bool, 
 }
 
 type LocalRemoteBuffers struct {
+	LocalBufSize int    `json:"Lbs"`
+	CmdCnt       int    `json:"-"`
+	Cmds         string `json:"-"`
 }
 
 type BufferStats struct {
@@ -293,16 +296,30 @@ func (b *BufferflowTinygV2) OnIncomingData(data string) {
 					h.broadcastSys <- bm
 				}
 
+				// For debug
+				mLocalQueue := LocalRemoteBuffers{}
+				mLocalQueue.LocalBufSize = b.q.LenOfCmds()
+				mLocalQueue.CmdCnt = b.q.Len()
+				//mLocalQueue.Cmds = b.q.DebugStr()
+				bmLocalQueue, errlq := json.Marshal(mLocalQueue)
+				if errlq != nil {
+					log.Printf("\tCould not marshal localBufSize debug stmt:%v", mLocalQueue)
+				} else {
+					log.Printf("\tHere is our localBufSize debug stmt:%v", string(bmLocalQueue))
+				}
+
 				// we need to send a buffer size update
 				mbs := BufferStats{}
 				mbs.P = b.Port
-				mbs.D = "{\"LocalBufSize\":" + strconv.Itoa(b.q.LenOfCmds()) + "}\n"
+				//mbs.D = "{\"LocalBufSize\":" + strconv.Itoa(b.q.LenOfCmds()) + ",\"Cmds\":\"" + b.q.DebugStr() + "\"}\n"
+				mbs.D = string(bmLocalQueue) + "\n"
 				bmbs, err2 := json.Marshal(mbs)
 				if err2 == nil {
 					h.broadcastSys <- bmbs
+					//log.Printf("\tFinal buf size update:%v", string(bmbs))
 				}
 
-				log.Printf("\tLocal buffer decreased to itemCnt:%v, lenOfBuf:%v\n", b.q.Len(), b.q.LenOfCmds())
+				//log.Printf("\tLocal buffer decreased to itemCnt:%v, lenOfBuf:%v\n", b.q.Len(), b.q.LenOfCmds())
 
 				if *bufFlowDebugType == "on" {
 					// let's report on how our buffer is doing

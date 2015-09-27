@@ -227,7 +227,7 @@ func (p *serport) writerBuffered() {
 	// sees something come in
 	for data := range p.sendBuffered {
 
-		log.Printf("Got p.sendBuffered. data:%v, id:%v, pause:%v\n", string(data.data), string(data.id), data.pause)
+		log.Printf("Got p.sendBuffered. data:%v, id:%v, pause:%v\n", strings.Replace(string(data.data), "\n", "\\n", -1), string(data.id), data.pause)
 
 		// we want to block here if we are being asked
 		// to pause.
@@ -428,13 +428,13 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	p := &serport{sendBuffered: make(chan Cmd, 500000), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype, IsPrimary: isPrimary, IsSecondary: isSecondary}
 
 	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
-	if buftype == "tinyg" {
+	if buftype == "tinyg_old" {
 
 		bw := &BufferflowTinyg{Name: "tinyg", parent_serport: p}
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
-	} else if buftype == "tinyg_v2" {
+	} else if buftype == "tinyg" {
 
 		bw := &BufferflowTinygV2{Name: "tinyg_v2", parent_serport: p}
 		bw.Init()

@@ -28,7 +28,10 @@
 
 package main
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 type queuenode struct {
 	data string
@@ -140,4 +143,22 @@ func (q *Queue) Delete() {
 	q.tail = nil
 	q.count = 0
 	q.lenOfCmds = 0
+}
+
+func (q *Queue) DebugStr() string {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	str := ""
+	if q.head != nil {
+		str += q.head.id + ":" + strings.Replace(q.head.data, "\n", "\\n", -1)
+
+		n := q.head.next
+		for n != nil {
+			str += ", " + n.id + ":" + strings.Replace(n.data, "\n", "\\n", -1)
+			n = n.next
+		}
+	}
+
+	return str
 }

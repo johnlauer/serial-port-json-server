@@ -328,6 +328,7 @@ sudo service serial-port-json-server start
 Revisions
 -------
 Changes in 1.86
+- Rewrote "tinyg" buffer to use better locking technique on in/out thread to remove chance that r:{}'s are lost and jobs get paused mysteriously. Now report {"Lbs":xx} which is a LocalBufferSize report that tells the UI how many characters are in the TinyG buffer from SPJS's perspective. This will help users see if in fact there is a mis-sync between what SPJS thinks is in the TinyG buffer and what actually is in that buffer. The {"Lbs":0} value will be reported back after every r:{} received from TinyG.
 - Added "Pause" value in sendjson command so you can ask SPJS to pause after sending a serial command. This was needed because on Atmel processors during an EEPROM write all data is dropped that is sent in on the serial lines. To use this value, send in a sendjson command similar to the following:
 `sendjson {"P":"COM7","Data":[{"D":"{\"ej\":1}\n","Id":"tinygInit-cmd182","Pause":50}]}`
 - Added "tinyg_tidmode" buffer which is the most advanced buffer ever added to SPJS. This buffer uses a primary key for each line sent to TinyG and TinyG sends back the primary key as it processes each line. This means that SPJS will be in 100% perfect sync with TinyG. This will solve the longstanding hard-to-find bug where users would occasionally get random pausing because SPJS thought TinyG's buffer was full, but it really wasn't.
