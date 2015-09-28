@@ -69,7 +69,7 @@ type BufferflowTinygTidMode struct {
 
 	// Use the queue that has an integer id instead
 	q      *QueueTid
-	tidCtr int
+	tidCtr int64
 
 	// use thread locking for b.Paused
 	lock *sync.Mutex

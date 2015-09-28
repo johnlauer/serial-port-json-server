@@ -624,7 +624,7 @@ func (b *BufferflowTinygPktMode) OnIncomingData(data string) {
 			// if regexp.MatchString("{\"r\":\{\"rx\":", element) {
 			if b.reRxResponse.MatchString(element) {
 
-				log.Println("\tWe are in re-sync mode and looks like we just got our rx: response: %v", element)
+				log.Printf("\tWe are in re-sync mode and looks like we just got our rx: response: %v\n", element)
 				b.reSyncEnd(element)
 
 			} else {
