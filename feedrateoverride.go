@@ -30,11 +30,14 @@ type froRequestJson struct {
 func spFeedRateOverride(arg string) {
 
 	// we will get a string of "fro COM9 2.4" or "fro /dev/ttyUSB0 0.1"
-	log.Printf("Inside spFeedRateOverride arg: %v\n", arg)
+	log.Printf("Inside spFeedRateOverride arg: %v\n", strings.Replace(arg, "\n", "\\n", -1))
+	arg = strings.TrimSpace(arg)
 	arg = strings.TrimPrefix(arg, " ")
 
-	args := strings.SplitN(arg, " ", 3)
-	if len(args) != 3 {
+	args := strings.Split(arg, " ")
+	log.Println(args)
+
+	if len(args) != 2 && len(args) != 3 {
 		errstr := "Could not parse feedrate override command: " + arg
 		log.Println(errstr)
 		spErr(errstr)
@@ -42,7 +45,8 @@ func spFeedRateOverride(arg string) {
 	}
 	portname := strings.Trim(args[1], " ")
 	log.Println("The port to write to is:" + portname + "---")
-	log.Println("The data is:" + args[2] + "---")
+
+	//log.Println("The data is:" + args[2] + "---")
 
 	// see if we have this port open
 	myport, isFound := findPortByName(portname)
@@ -51,6 +55,12 @@ func spFeedRateOverride(arg string) {
 		// we couldn't find the port, so send err
 		//isFroOn = false
 		spErr("We could not find the serial port " + portname + " that you were trying to apply the feedrate override to.")
+		return
+	}
+
+	// see if they are just querying status
+	if len(args) == 2 {
+		sendStatusOnFeedrateOverride(myport)
 		return
 	}
 
@@ -80,7 +90,8 @@ func spFeedRateOverride(arg string) {
 		frj.IsOn = true
 	}
 
-	ls, err := json.MarshalIndent(frj, "", "\t")
+	//ls, err := json.MarshalIndent(frj, "", "\t")
+	ls, err := json.Marshal(frj)
 	if err != nil {
 		log.Println(err)
 		h.broadcastSys <- []byte("Error creating json on feedrate override report " +
@@ -95,6 +106,33 @@ func spFeedRateOverride(arg string) {
 	// so set boolean that we need to inject it into the next line
 	isFroNeedTriggered = true
 
+}
+
+func sendStatusOnFeedrateOverride(myport *serport) {
+	// they just want a status
+	var frj froRequestJson
+	frj.Cmd = "FeedRateOverride"
+	frj.FeedRateOverride = myport.feedRateOverride
+	frj.Port = myport.portConf.Name
+	frj.Desc = "Providing you status of feed rate override."
+
+	if frj.FeedRateOverride <= 0.0 {
+		frj.IsOn = false
+	} else {
+		frj.IsOn = true
+	}
+
+	ls, err := json.Marshal(frj)
+	if err != nil {
+		log.Println(err)
+		h.broadcastSys <- []byte("Error creating json on feedrate override report " +
+			err.Error())
+	} else {
+		//log.Print("Printing out json byte data...")
+		//log.Print(ls)
+		h.broadcastSys <- ls
+	}
+	return
 }
 
 // Here is where we actually apply the feedrate override on a line of gcode

@@ -134,8 +134,11 @@ func (b *BufferflowTinygV2) Init() {
 	//b.rxQueryLoop(b.parent_serport)
 
 	go func() {
-		time.Sleep(2500 * time.Millisecond)
+		time.Sleep(1500 * time.Millisecond)
 		//spWriteJson("sendjson {\"P\":\"" + b.parent_serport.portConf.Name + "\",\"Data\":[{\"D\":\"" + "{\\\"rxm\\\":0}\\n\", \"Id\":\"internalInit0\", \"Pause\":50}]}")
+		// get feed rate override from get go
+		spFeedRateOverride("fro " + b.parent_serport.portConf.Name + "\n")
+		log.Println("Just forcibly asked for the fro status")
 
 	}()
 }
