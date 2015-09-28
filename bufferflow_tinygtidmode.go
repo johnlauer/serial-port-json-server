@@ -69,7 +69,7 @@ type BufferflowTinygTidMode struct {
 
 	// Use the queue that has an integer id instead
 	q      *QueueTid
-	tidCtr int64
+	tidCtr int
 
 	// use thread locking for b.Paused
 	lock *sync.Mutex
@@ -269,7 +269,7 @@ func (b *BufferflowTinygTidMode) RewriteSerialData(cmd string, id string) string
 	b.tidCtr++
 
 	// make sure we don't overflow the counter
-	if b.tidCtr >= 4294967295 {
+	if b.tidCtr >= 429496729 { //4294967295 {
 		log.Printf("\tWe need to reset the tidCtr cuz we got too high. Crazy! tidCtr:%v\n", b.tidCtr)
 		b.tidCtr = 1
 	}
