@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.85
+Version 1.86
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -73,6 +73,20 @@ Here's a screenshot of a successful run on Windows x64. Make sure you allow the 
 
 Binaries for Download
 ---------
+Version 1.86
+Build date: Oct 4, 2015
+Latest TinyG buffer and firmware programmer.
+
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_windows_386.zip">Windows x32</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_windows_amd64.zip">Windows x64</a>
+- <a class="list-group-item" target="_blank" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_darwin_amd64.zip">Mac OS X x64</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_linux_386.tar.gz">Linux x32</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_linux_amd64.tar.gz">Linux x64</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_linux_arm.tar.gz">Raspberry Pi (Linux ARM)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_linux_arm.tar.gz">Beagle Bone Black (Linux ARMv7)</a>
+- <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
+      
+<!--
 Version 1.83
 Build date: July 19, 2015
 Build has Arduino/Atmel Programmer built in and Marlin buffer support.
@@ -86,7 +100,7 @@ Please note: All TinyG and TinyG G2 users should use 1.83. All Grbl users on Lin
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_amd64.tar.gz">Linux x64</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi / Beagle Bone Black (Linux ARM)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
-
+-->
 
 Version 1.80
 Build date: Mar 8, 2015
