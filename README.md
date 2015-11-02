@@ -295,7 +295,7 @@ case "$1" in
   start)
     log_begin_msg "Starting Serial Port JSON Server service"
 # do something
-        /home/pi/serial-port-json-server_linux_arm/serial-port-json-server -regex usb &
+        /home/pi/serial-port-json-server_linux_arm/serial-port-json-server -regex usb|acm &
     log_end_msg $?
     exit 0
     ;;
