@@ -1,4 +1,6 @@
-// +build !linux,!arm
+// +build ignore
+//+build !linux,!arm
+// Ignore this file for now, but it would be nice to get GPIO going natively
 
 package main
 
@@ -54,6 +56,7 @@ const (
 )
 
 type GPIOInterface interface {
+	PreInit()
 	Init(chan PinState, chan PinState, chan string, map[string]PinState) error
 	Close() error
 	PinMap() ([]PinDef, error)

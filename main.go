@@ -26,8 +26,8 @@ var (
 	versionFloat = float32(1.87)
 	addr         = flag.String("addr", ":8989", "http service address")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
-	verbose = flag.Bool("v", true, "show debug logging")
-	//verbose = flag.Bool("v", false, "show debug logging")
+	//verbose = flag.Bool("v", true, "show debug logging")
+	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
 
@@ -165,9 +165,10 @@ func main() {
 	//go d.run()
 
 	// Setup GPIO server
-	gpio.PreInit()
+	// Ignore GPIO for now, but it would be nice to get GPIO going natively
+	//gpio.PreInit()
 	// when the app exits, clean up our gpio ports
-	defer gpio.CleanupGpio()
+	//defer gpio.CleanupGpio()
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/ws", wsHandler)

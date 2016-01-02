@@ -1,14 +1,23 @@
-// +build linux,arm
+// +build ignore
+// Ignore this file for now, but it would be nice to get GPIO going natively
 
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"log"
+	"os"
+	"os/signal"
 	"strconv"
 
 	"github.com/kidoman/embd"
 	_ "github.com/kidoman/embd/host/all"
+)
+
+var (
+	gpio GPIO
 )
 
 type GPIO struct {
@@ -16,6 +25,118 @@ type GPIO struct {
 	pinStateChanged chan PinState
 	pinAdded        chan PinState
 	pinRemoved      chan string
+}
+
+type Direction int
+type PullUp int
+
+type PinState struct {
+	Pin    interface{} `json:"-"`
+	PinId  string
+	Dir    Direction
+	State  byte
+	Pullup PullUp
+	Name   string
+}
+
+type PinDef struct {
+	ID             string
+	Aliases        []string
+	Capabilities   []string
+	DigitalLogical int
+	AnalogLogical  int
+}
+
+const STATE_FILE = "pinstates.json"
+
+const (
+	In  Direction = 0
+	Out Direction = 1
+	PWM Direction = 2
+
+	Pull_None PullUp = 0
+	Pull_Up   PullUp = 1
+	Pull_Down PullUp = 2
+)
+
+type GPIOInterface interface {
+	PreInit()
+	CleanupGpio()
+	Init(chan PinState, chan PinState, chan string, map[string]PinState) error
+	Close() error
+	PinMap() ([]PinDef, error)
+	Host() (string, error)
+	PinStates() (map[string]PinState, error)
+	PinInit(string, Direction, PullUp, string) error
+	PinSet(string, byte) error
+	PinRemove(string) error
+}
+
+func (g *GPIO) CleanupGpio() {
+	pinStates, err := gpio.PinStates()
+	if err != nil {
+		log.Println("Error getting pinstates on cleanup: " + err.Error())
+	} else {
+		data, err := json.Marshal(pinStates)
+		if err != nil {
+			log.Println("Error marshalling pin states : " + err.Error())
+		}
+		ioutil.WriteFile(STATE_FILE, data, 0644)
+	}
+	gpio.Close()
+	os.Exit(1)
+}
+
+// I took what Ben had in his main.go file and moved it here
+func (g *GPIO) PreInit() {
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	go func() {
+		for sig := range c {
+			// sig is a ^C, handle it
+			log.Printf("captured %v, cleaning up gpio and exiting..", sig)
+			gpio.CleanupGpio()
+		}
+	}()
+
+	stateChanged := make(chan PinState)
+	pinRemoved := make(chan string)
+	pinAdded := make(chan PinState)
+	go func() {
+		for {
+			// start listening on stateChanged and pinRemoved channels and update hub as appropriate
+			select {
+			case pinState := <-stateChanged:
+				go h.sendMsg("PinState", pinState)
+			case pinName := <-pinRemoved:
+				go h.sendMsg("PinRemoved", pinName)
+			case pinState := <-pinAdded:
+				go h.sendMsg("PinAdded", pinState)
+			}
+		}
+	}()
+
+	pinStates := make(map[string]PinState)
+
+	// read existing pin states
+	if _, err := os.Stat(STATE_FILE); err == nil {
+		log.Println("Reading prexisting pinstate file : " + STATE_FILE)
+		dat, err := ioutil.ReadFile(STATE_FILE)
+		if err != nil {
+			log.Println("Failed to read state file : " + STATE_FILE + " : " + err.Error())
+			return
+		}
+		err = json.Unmarshal(dat, &pinStates)
+		if err != nil {
+			log.Println("Failed to unmarshal json : " + err.Error())
+			return
+		}
+	}
+
+	gpio.Init(stateChanged, pinAdded, pinRemoved, pinStates)
+
 }
 
 func (g *GPIO) Init(pinStateChanged chan PinState, pinAdded chan PinState, pinRemoved chan string, states map[string]PinState) error {
@@ -312,5 +433,65 @@ func (g *GPIO) PinRemove(pinId string) error {
 		delete(g.pinStates, pinId)
 		g.pinRemoved <- pinId
 	}
+	return nil
+}
+
+type BlasterPin struct {
+	id    int
+	value float64
+}
+
+func InitBlaster() error {
+	// check the file actually exists, throw error if not so Pi can bail out
+	if _, err := os.Stat("/dev/pi-blaster"); os.IsNotExist(err) {
+		return errors.New("/dev/pi-blaster does not exists, is pi-blaster correctly installed?")
+	}
+	return nil
+}
+func CloseBlaster() error {
+	return nil
+}
+func NewBlasterPin(pinId int) BlasterPin {
+	log.Println("Creating pi blaster pin on ", string(pinId))
+	return BlasterPin{
+		pinId,
+		0.0,
+	}
+}
+func (b *BlasterPin) Close() error {
+	f, err := os.Create("/dev/pi-blaster")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString("release " + strconv.Itoa(b.id))
+	if err != nil {
+		return err
+	}
+	f.Sync()
+	return nil
+}
+func (b *BlasterPin) Write(value byte) error {
+	f, err := os.Create("/dev/pi-blaster")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	v := (float64(value) / 255.0)
+	if v > 1.0 {
+		v = 1.0
+	} else if v < 0.0 {
+		v = 0.0
+	}
+	toVal := strconv.FormatFloat(v, 'f', 2, 64)
+	msg := strconv.Itoa(b.id) + "=" + string(toVal)
+	_, err = f.WriteString(msg + "\n")
+	if err != nil {
+		log.Println("PiBlaster: Failed to write :", err.Error())
+		return err
+	}
+	b.value = v
+	f.Sync()
 	return nil
 }
