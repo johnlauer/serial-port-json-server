@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/kardianos/osext"
 	"log"
+
+	"github.com/kardianos/osext"
 	//"os"
 	"os/exec"
 	//"path"
@@ -53,7 +54,7 @@ func (h *hub) run() {
 			h.connections[c] = true
 			// send supported commands
 			c.send <- []byte("{\"Version\" : \"" + version + "\"} ")
-			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"sendjson {P:portName, Data:[{D:cmdStr, Id:idStr}]}\",  \"close [portName]\", \"bufferalgorithms\", \"baudrates\", \"restart\", \"exit\", \"broadcast [anythingToRegurgitate]\", \"hostname\", \"version\", \"program [portName] [core:architecture:name] [path/to/binOrHexFile]\", \"programfromurl [portName] [core:architecture:name] [urlToBinOrHexFile]\"]} ")
+			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"sendjson {P:portName, Data:[{D:cmdStr, Id:idStr}]}\",  \"close [portName]\", \"bufferalgorithms\", \"baudrates\", \"restart\", \"exit\", \"broadcast [anythingToRegurgitate]\", \"hostname\", \"version\", \"program [portName] [core:architecture:name] [path/to/binOrHexFile]\", \"programfromurl [portName] [core:architecture:name] [urlToBinOrHexFile]\", \"execruntime\", \"exec [command] [arg1] [arg2] [...]\"]} ")
 			c.send <- []byte("{\"Hostname\" : \"" + *hostname + "\"} ")
 		case c := <-h.unregister:
 			delete(h.connections, c)
@@ -236,6 +237,114 @@ func checkCmd(m []byte) {
 		getHostname()
 	} else if strings.HasPrefix(sl, "version") {
 		getVersion()
+	} else if strings.HasPrefix(sl, "execruntime") {
+		execRuntime()
+	} else if strings.HasPrefix(sl, "exec") {
+		execRun(s)
+
+	} else if strings.HasPrefix(sl, "gethost") {
+		hostname, err := gpio.Host()
+		if err != nil {
+			go h.sendErr(err.Error())
+		}
+		go h.sendMsg("Host", hostname)
+
+	} else if strings.HasPrefix(sl, "getpinmap") {
+		pinMap, err := gpio.PinMap()
+		if err != nil {
+			go h.sendErr(err.Error())
+		}
+		go h.sendMsg("PinMap", pinMap)
+	} else if strings.HasPrefix(sl, "getpinstates") {
+		pinStates, err := gpio.PinStates()
+		if err != nil {
+			go h.sendErr(err.Error())
+		}
+		go h.sendMsg("PinStates", pinStates)
+
+	} else if strings.HasPrefix(sl, "initpin") {
+		// format : setpin pinId dir pullup
+		args := strings.Split(s, " ")
+		if len(args) < 4 {
+			go h.sendErr("You did not specify a pin and a direction [0|1|low|high] and a name")
+			return
+		}
+		if len(args[1]) < 1 {
+			go h.sendErr("You did not specify a pin")
+			return
+		}
+		pin := args[1]
+		dirStr := args[2]
+		name := args[4]
+		dir := In
+		switch {
+		case dirStr == "1" || dirStr == "out" || dirStr == "output":
+			dir = Out
+		case dirStr == "0" || dirStr == "in" || dirStr == "input":
+			dir = In
+		case dirStr == "pwm":
+			dir = PWM
+		}
+		pullup := Pull_None
+		switch {
+		case args[3] == "1" || args[3] == "up":
+			pullup = Pull_Up
+		case args[3] == "0" || args[3] == "down":
+			pullup = Pull_Down
+		}
+		err := gpio.PinInit(pin, dir, pullup, name)
+		if err != nil {
+			go h.sendErr(err.Error())
+		}
+	} else if strings.HasPrefix(sl, "removepin") {
+		// format : removepin pinId
+		args := strings.Split(s, " ")
+		if len(args) < 2 {
+			go h.sendErr("You did not specify a pin id")
+			return
+		}
+		err := gpio.PinRemove(args[1])
+		if err != nil {
+			go h.sendErr(err.Error())
+		}
+	} else if strings.HasPrefix(sl, "setpin") {
+		// format : setpin pinId high/low/1/0
+		args := strings.Split(s, " ")
+		if len(args) < 3 {
+			go h.sendErr("You did not specify a pin and a state [0|1|low|high]")
+			return
+		}
+		if len(args[1]) < 1 {
+			go h.sendErr("You did not specify a pin")
+			return
+		}
+		pin := args[1]
+		stateStr := args[2]
+		state := 0
+		switch {
+		case stateStr == "1" || stateStr == "high":
+			state = 1
+		case stateStr == "0" || stateStr == "low":
+			state = 0
+		default:
+			// assume its a pwm value...if it converts to integer in 0-255 range
+			s, err := strconv.Atoi(stateStr)
+			if err != nil {
+				go h.sendErr("Invalid value, must be between 0 and 255 : " + stateStr)
+				return
+			}
+			if s < 0 || s > 255 {
+				go h.sendErr("Invalid value, must be between 0 and 255 : " + stateStr)
+				return
+			}
+			state = s
+		}
+
+		err := gpio.PinSet(pin, byte(state))
+		if err != nil {
+			go h.sendErr(err.Error())
+		}
+
 	} else {
 		go spErr("Could not understand command.")
 	}
@@ -376,4 +485,28 @@ func broadcast(arg string) {
 	log.Printf("bcmd:%v\n", string(json))
 	h.broadcastSys <- json
 
+}
+
+func (h *hub) sendErr(msg string) {
+	msgMap := map[string]string{"error": msg}
+	log.Println("Error: " + msg)
+	bytes, err := json.Marshal(msgMap)
+	if err != nil {
+		log.Println("Failed to marshal data!")
+		return
+	}
+	h.broadcastSys <- bytes
+}
+
+func (h *hub) sendMsg(name string, msg interface{}) {
+	msgMap := make(map[string]interface{})
+	msgMap[name] = msg
+	msgMap["Type"] = name
+	//log.Println("Sent: " + name)
+	bytes, err := json.Marshal(msgMap)
+	if err != nil {
+		log.Println("Failed to marshal data!")
+		return
+	}
+	h.broadcastSys <- bytes
 }
