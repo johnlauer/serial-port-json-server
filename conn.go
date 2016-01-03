@@ -1,11 +1,14 @@
 // Supports Windows, Linux, Mac, and Raspberry Pi
 
+// Going to add SSL
+
 package main
 
 import (
-	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/websocket"
 )
 
 type connection struct {
