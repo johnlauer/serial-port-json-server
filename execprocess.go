@@ -65,17 +65,18 @@ func execRun(command string) {
 }
 
 type ExecRuntime struct {
-	OS     string
-	Arch   string
-	Goroot string
-	NumCpu int
+	ExecRuntimeStatus string
+	OS                string
+	Arch              string
+	Goroot            string
+	NumCpu            int
 }
 
 // Since SPJS runs on any OS, you will need to query to figure out
 // what OS we're on so you know the style of commands to send
 func execRuntime() {
 	// create the struct and send data back
-	info := ExecRuntime{runtime.GOOS, runtime.GOARCH, runtime.GOROOT(), runtime.NumCPU()}
+	info := ExecRuntime{"Done", runtime.GOOS, runtime.GOARCH, runtime.GOROOT(), runtime.NumCPU()}
 	bm, err := json.Marshal(info)
 	if err == nil {
 		h.broadcastSys <- bm
