@@ -240,7 +240,7 @@ func checkCmd(m []byte) {
 	} else if strings.HasPrefix(sl, "execruntime") {
 		execRuntime()
 	} else if strings.HasPrefix(sl, "exec") {
-		execRun(s)
+		go execRun(s)
 
 		/*
 			} else if strings.HasPrefix(sl, "gethost") {
