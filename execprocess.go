@@ -18,6 +18,7 @@ import (
 
 type ExecCmd struct {
 	ExecStatus string
+	Id         string
 	Cmd        string
 	Args       []string
 	Output     string
@@ -31,7 +32,18 @@ func execRun(command string) {
 	re, _ := regexp.Compile("^exec\\s+")
 	cleanCmd := re.ReplaceAllString(command, "")
 
+	// see if there's an id, and if so, yank it out
+	// grab any word after id: and do case insensitive (?i)
+	reId := regexp.MustCompile("(?i)^id:[a-zA-z0-9_\\-]+")
+	id := reId.FindString(cleanCmd)
+	if len(id) > 0 {
+		// we found an id at the start of the exec command, use it
+		cleanCmd = reId.ReplaceAllString(cleanCmd, "")
+		id = regexp.MustCompile("^id:").ReplaceAllString(id, "")
+	}
+
 	// trim it
+	cleanCmd = regexp.MustCompile("^\\s*").ReplaceAllString(cleanCmd, "")
 	cleanCmd = regexp.MustCompile("\\s*$").ReplaceAllString(cleanCmd, "")
 
 	// now we have to split off the first command and pass the rest as args
@@ -49,13 +61,13 @@ func execRun(command string) {
 		log.Printf("Command finished with error: %v "+string(cmdOutput), err)
 		//h.broadcastSys <- []byte("Could not program the board")
 		//mapD := map[string]string{"ProgrammerStatus": "Error", "Msg": "Could not program the board. It is also possible your serial port is locked by another app and thus we can't grab it to use for programming. Make sure all other apps that may be trying to access this serial port are disconnected or exited.", "Output": string(cmdOutput)}
-		mapD := ExecCmd{ExecStatus: "Error", Cmd: cmd, Args: argArr, Output: string(cmdOutput) + err.Error()}
+		mapD := ExecCmd{ExecStatus: "Error", Id: id, Cmd: cmd, Args: argArr, Output: string(cmdOutput) + err.Error()}
 		mapB, _ := json.Marshal(mapD)
 		h.broadcastSys <- mapB
 	} else {
 		log.Printf("Finished without error. Good stuff. stdout: " + string(cmdOutput))
 		//h.broadcastSys <- []byte("Flash OK!")
-		mapD := ExecCmd{ExecStatus: "Done", Cmd: cmd, Args: argArr, Output: string(cmdOutput)}
+		mapD := ExecCmd{ExecStatus: "Done", Id: id, Cmd: cmd, Args: argArr, Output: string(cmdOutput)}
 		mapB, _ := json.Marshal(mapD)
 		h.broadcastSys <- mapB
 		// analyze stdin
