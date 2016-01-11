@@ -9,10 +9,11 @@ import (
 	"github.com/go-ole/go-ole/oleutil"
 	//"github.com/tarm/goserial"
 	//"github.com/johnlauer/goserial"
-	"github.com/facchinm/go-serial"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/facchinm/go-serial"
 	//"encoding/binary"
 	"strconv"
 	"sync"
@@ -22,6 +23,7 @@ import (
 
 var (
 	serialListWindowsWg sync.WaitGroup
+	isSerialListWait    bool
 )
 
 func getMetaList() ([]OsSerialPort, os.SyscallError) {
@@ -30,12 +32,22 @@ func getMetaList() ([]OsSerialPort, os.SyscallError) {
 	// too many times too fast. i think it's something to do with
 	// the unsafe syscalls overwriting memory
 
+	// see if we are in a waitGroup and if so exit cuz it was
+	// causing a crash
+	if isSerialListWait {
+		var err os.SyscallError
+		list := make([]OsSerialPort, 0)
+		return list, err
+	}
+
 	// this will only block if waitgroupctr > 0. so first time
 	// in shouldn't block
 	serialListWindowsWg.Wait()
+	isSerialListWait = true
 
 	serialListWindowsWg.Add(1)
 	arr, sysCallErr := getListViaWmiPnpEntity()
+	isSerialListWait = false
 	serialListWindowsWg.Done()
 	//arr = make([]OsSerialPort, 0)
 

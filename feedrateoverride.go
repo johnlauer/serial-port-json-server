@@ -14,8 +14,9 @@ var (
 	isFroNeedTriggered = false
 	isFroOn            = false
 	//fro = 0.0
-	currentFeedrate  = -1.0
-	lastFeedrateSeen = -1.0
+	currentFeedrate       = -1.0
+	lastFeedrateSeen      = -1.0
+	portsWithFrOverrideOn = make(map[string]bool)
 )
 
 type froRequestJson struct {
@@ -50,6 +51,7 @@ func spFeedRateOverride(arg string) {
 
 	// see if we have this port open
 	myport, isFound := findPortByName(portname)
+	myport.isFeedRateOverrideOn = true
 
 	if !isFound {
 		// we couldn't find the port, so send err
@@ -138,6 +140,12 @@ func sendStatusOnFeedrateOverride(myport *serport) {
 // Here is where we actually apply the feedrate override on a line of gcode
 func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 
+	//	myport, isFound := findPortByName(portname)
+	//	if myport == nil || myport.isFeedRateOverrideOn == false {
+	//		log.Println("This port has no feed rate override on. So returning...")
+	//		return false, ""
+	//	}
+
 	//log.Println("Feed Rate Override Start")
 	// any way we cut this, we MUST extract the feedrate from every line whether
 	// fro is on or not because we need the currentFeedrate the moment the user asks
@@ -153,7 +161,7 @@ func doFeedRateOverride(str string, feedrateoverride float32) (bool, string) {
 	}
 
 	if feedrateoverride == 0.0 && !isFroNeedTriggered {
-		log.Println("\tFRO: Feed Rate override is 0.0 so returning")
+		//log.Println("\tFRO: Feed Rate override is 0.0 so returning")
 		return false, ""
 	}
 
