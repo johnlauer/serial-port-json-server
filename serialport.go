@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"sync"
+
 	"github.com/johnlauer/goserial"
 	//"github.com/facchinm/go-serial"
 	"io"
@@ -66,7 +68,8 @@ type serport struct {
 	IsSecondary bool
 
 	// Feedrate override value
-	feedRateOverride float32
+	feedRateOverride     float32
+	isFeedRateOverrideOn bool
 }
 
 type Cmd struct {
@@ -283,7 +286,12 @@ func (p *serport) writerNoBuf() {
 		// However, there's not really a better place to put this because you need to know
 		// last minute what the feedrate override is and let the user adjust it at any time
 		// If you want a generic serial port implementation, remove this last minute call from this code
-		didWeOverride, newData := doFeedRateOverride(data.data, p.feedRateOverride)
+
+		didWeOverride := false
+		newData := ""
+		if p.isFeedRateOverrideOn {
+			didWeOverride, newData = doFeedRateOverride(data.data, p.feedRateOverride)
+		}
 
 		if didWeOverride {
 			// We need to reset the gcode and make the qwReport be what we want
@@ -357,9 +365,18 @@ func (p *serport) writerNoBuf() {
 	p.portIo.Close()
 }
 
+var spmutex = &sync.Mutex{}
+var spIsOpening = false
+
 func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) {
 
 	log.Print("Inside spHandler")
+	spmutex.Lock()
+	if spIsOpening {
+		log.Println("We are currently in the middle of opening a port. Returning...")
+		return
+	}
+	spIsOpening = true
 
 	var out bytes.Buffer
 
@@ -425,7 +442,7 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	log.Print("Opened port successfully")
 	//p := &serport{send: make(chan []byte, 256), portConf: conf, portIo: sp}
 	// we can go up to 500,000 lines of gcode in the buffer
-	p := &serport{sendBuffered: make(chan Cmd, 500000), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype, IsPrimary: isPrimary, IsSecondary: isSecondary}
+	p := &serport{sendBuffered: make(chan Cmd, 500000), sendNoBuf: make(chan Cmd), portConf: conf, portIo: sp, BufferType: buftype, IsPrimary: isPrimary, IsSecondary: isSecondary, isFeedRateOverrideOn: false}
 
 	// if user asked for a buffer watcher, i.e. tinyg/grbl then attach here
 	if buftype == "tinyg_old" {
@@ -469,6 +486,24 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 		bw.Init()
 		bw.Port = portname
 		p.bufferwatcher = bw
+	} else if buftype == "timed" {
+
+		// this is a timed bufferflow taken from what the Arduino
+		// guys did to reduce the amount of json packets coming
+		// back from the server. by adding a timer we can collect data
+		// first and then send back. we only add 16ms so it's not too bad
+		bw := &BufferflowTimed{Name: "timed", Port: portname, Output: h.broadcastSys, Input: make(chan string)}
+		bw.Init()
+		bw.Port = portname
+		p.bufferwatcher = bw
+	} else if buftype == "nodemcu" {
+
+		// nodemcu buffer only sends data back per line (which might be a bad call)
+		// and it only sends 1 line at a time to the device and releases the next line
+		// when it sees a > come back
+		bw := &BufferflowNodeMcu{Name: "nodemcu", Port: portname}
+		bw.Init()
+		p.bufferwatcher = bw
 	} else if buftype == "grbl" {
 		// grbl bufferflow
 		// store port as parent_serport for use in intializing a status query loop for '?'
@@ -500,6 +535,9 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	//go p.reader()
 	//p.done = make(chan bool)
 	//<-p.done
+
+	spIsOpening = false
+	spmutex.Unlock()
 }
 
 func spHandlerCloseExperimental(p *serport) {

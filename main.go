@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	version      = "1.86"
-	versionFloat = float32(1.86)
+	version      = "1.87"
+	versionFloat = float32(1.87)
 	addr         = flag.String("addr", ":8989", "http service address")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
 	//verbose = flag.Bool("v", true, "show debug logging")
@@ -163,6 +163,12 @@ func main() {
 	go sh.run()
 	// launch our dummy data routine
 	//go d.run()
+
+	// Setup GPIO server
+	// Ignore GPIO for now, but it would be nice to get GPIO going natively
+	//gpio.PreInit()
+	// when the app exits, clean up our gpio ports
+	//defer gpio.CleanupGpio()
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/ws", wsHandler)
