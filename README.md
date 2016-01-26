@@ -341,12 +341,15 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.88
+- Added udpserver.go so IoT devices can send announce messages about their presence and SPJS will connect back to them to allow them to broadcast out commands to all connected SPJS websockets as well as have sockets message back to the IoT devices.
+- Added nodemcu buffer so http://chilipeppr.com/nodemcu workspace works correctly.
 Changes in 1.87
 - Added exec and execruntime commands. The exec command lets you simply execute any command on the host operating system 
 as if you were logged in at the command line. This is similar to the program command which essentially was executing a 
 command on the command line. However, now you can do any command you want. Make sure your host OS is behind a firewall as
 this method opens up your device to any command being executed on it. 
-Changes in 1.86
+Changes in 1.88
 - Rewrote "tinyg" buffer to use better locking technique on in/out thread to remove chance that r:{}'s are lost and jobs get paused mysteriously. Now report {"Lbs":xx} which is a LocalBufferSize report that tells the UI how many characters are in the TinyG buffer from SPJS's perspective. This will help users see if in fact there is a mis-sync between what SPJS thinks is in the TinyG buffer and what actually is in that buffer. The {"Lbs":0} value will be reported back after every r:{} received from TinyG.
 - Added "Pause" value in sendjson command so you can ask SPJS to pause after sending a serial command. This was needed because on Atmel processors during an EEPROM write all data is dropped that is sent in on the serial lines. To use this value, send in a sendjson command similar to the following:
 `sendjson {"P":"COM7","Data":[{"D":"{\"ej\":1}\n","Id":"tinygInit-cmd182","Pause":50}]}`

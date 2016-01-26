@@ -1,4 +1,4 @@
-// Version 1.86
+// Version 1.88
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	version      = "1.87"
-	versionFloat = float32(1.87)
+	version      = "1.88"
+	versionFloat = float32(1.88)
 	addr         = flag.String("addr", ":8989", "http service address")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
 	//verbose = flag.Bool("v", true, "show debug logging")
@@ -163,6 +163,12 @@ func main() {
 	go sh.run()
 	// launch our dummy data routine
 	//go d.run()
+
+	// Run the UDP Server that lets us listen for devices announcing they
+	// are alive on our local network. This is used by ESP8266 devices that
+	// can speak to SPJS and allow SPJS to pass through their data back to
+	// clients such as ChiliPeppr
+	go udpServerRun()
 
 	// Setup GPIO server
 	// Ignore GPIO for now, but it would be nice to get GPIO going natively
