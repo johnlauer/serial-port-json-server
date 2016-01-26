@@ -86,23 +86,23 @@ func (b *BufferflowNodeMcu) Init() {
 				if len(element) > 4 {
 					bTxt := []byte(element)[len(element)-4:]
 					bTest := []byte{14, 219, 200, 244}
-					log.Printf("\t\ttesting two arrays\n\tbTxt :%v\n\tbTest:%v\n", bTxt, bTest)
+					//log.Printf("\t\ttesting two arrays\n\tbTxt :%v\n\tbTest:%v\n", bTxt, bTest)
 					//reWasItReset := regexp.MustCompile("fffd")
 					//if reWasItReset.MatchString(element) {
 					if ByteArrayEquals(bTxt, bTest) {
 						// it was reset, wipe buffer
 						b.q.Delete()
-						log.Printf("\t\tLooks like it was reset. We should wipe buffer.")
+						log.Printf("\t\tLooks like it was reset based on 1st 4 bytes. We should wipe buffer.")
 						b.SetPaused(false, 2)
 					}
 				}
 
 				// see if it just got restarted
-				reIsRestart := regexp.MustCompile("NodeMCU custom build by frightanic.com")
+				reIsRestart := regexp.MustCompile("(NodeMCU custom build by frightanic.com|NodeMCU .+ build .+ powered by Lua)")
 				if reIsRestart.MatchString(element) {
 					// it was reset, wipe buffer
 					b.q.Delete()
-					log.Printf("\t\tLooks like it was reset. We should wipe buffer.")
+					log.Printf("\t\tLooks like it was reset based on NodeMCU build line. We should wipe buffer.")
 					b.SetPaused(false, 2)
 				}
 
