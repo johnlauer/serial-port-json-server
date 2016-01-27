@@ -3,3 +3,12 @@ language: go
 go:
   - 1.5
   - tip
+
+deploy:
+  provider: releases
+  file: 
+    - "serial-port-json-server"
+    - "serial-port-json-server.exe"
+  skip_cleanup: true
+  on:
+    tags: true
