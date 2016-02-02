@@ -187,6 +187,7 @@ version | | Get the software version of SPJS that is running
 hostname | | Get the hostname of the current SPJS instance 
 program portName core:architecture:name $path/to/filename | program com3 arduino:avr:uno c:\myfiles\grbl_9i.hex | Send a hex file to your Arduino board to program it.
 programfromurl portName core:architecture:name url | programfromurl /dev/ttyACM0 arduino:sam:arduino_due_x http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin | Download a hex/bin file from a URL and then send it to your Arduino board to program it.
+cayenn-sendudp | cayenn-sendudp 192.168.1.12 any-msg-to-end-of-line | Send this command into SPJS and the content after the IP address will be forwarded to the IP address you provided via UDP to port 8988 of the device. This enables IoT communication from the browser since browsers can't message with UDP directly.
 
 Programming Your Arduino from SPJS
 -------
@@ -342,7 +343,8 @@ sudo service serial-port-json-server start
 Revisions
 -------
 Changes in 1.88
-- Added udpserver.go so IoT devices can send announce messages about their presence and SPJS will connect back to them to allow them to broadcast out commands to all connected SPJS websockets as well as have sockets message back to the IoT devices.
+- Added cayenn.go which is the new protocol for ChiliPeppr's Cayenn IoT communication socket service so IoT devices can send announce messages about their presence and SPJS will connect back to them to allow them to broadcast out commands to all connected SPJS websockets as well as have sockets message back to the IoT devices.
+- Added cayenn-sendudp command to overall command list so clients like ChiliPeppr or other connected websocket clients can send back to devices over UDP to enable IoT communications.
 - Added nodemcu buffer so http://chilipeppr.com/nodemcu workspace works correctly.
 Changes in 1.87
 - Added exec and execruntime commands. The exec command lets you simply execute any command on the host operating system 

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"regexp"
+	"strings"
 )
 
 type Addr struct {
@@ -76,12 +77,13 @@ func udpServerRun() {
 
 			var am ClientAnnounceMsg
 			err := json.Unmarshal([]byte(buf[0:n]), &am)
-			if err == nil {
-
+			if err != nil {
+				log.Println("Err unmarshalling UDP inbound message from device. err:", err)
 			}
 			m.Announce = am.Announce
 			m.Widget = am.Widget
 			m.JsonTag = am.JsonTag
+			m.DeviceId = am.MyDeviceId
 
 			bm, err := json.Marshal(m)
 			if err == nil {
@@ -92,13 +94,64 @@ func udpServerRun() {
 			var arm ServerAnnounceResponseMsg
 			arm.Announce = "i-am-your-server"
 			arm.YourDeviceId = am.MyDeviceId
-			arm.ServerIp = ""
+			arm.ServerIp = ServerConn.LocalAddr().String()
 			arm.Widget = am.Widget
-			arm.JsonTag = "{}"
+			arm.JsonTag = am.JsonTag
 
 			sendUdp(arm, m.Addr.IP, ":8988")
 			go makeTcpConnBackToDevice(m.Addr.IP)
 		}
+	}
+}
+
+func cayennSendUdp(s string) {
+	// we get here if a client sent into spjs the command
+	// cayenn-sendudp 192.168.1.12 any-msg-to-end-of-line
+	args := strings.SplitN(s, " ", 3)
+
+	// make sure we got 3 args
+	if len(args) < 3 {
+		spErr("Error parsing cayenn-sendudp. Returning. msg:" + s)
+		return
+	}
+
+	ip := args[1]
+	if len(ip) < 7 {
+		spErr("Error parsing IP address for cayenn-sendudp. Returning. msg:" + s)
+		return
+	}
+	msg := args[2]
+	log.Println("cayenn-sendudp ip:", ip, "msg:", msg)
+	cayennSendUdpMsg(ip, ":8988", msg)
+}
+
+func cayennSendUdpMsg(ipaddr string, port string, msg string) {
+
+	// This method sends a message to a specific IP address / port over UDP
+	var service = ipaddr + port
+
+	conn, err := net.Dial("udp", service)
+
+	if err != nil {
+		log.Println("Could not resolve udp address or connect to it on ", service)
+		log.Println(err)
+		return
+	}
+	defer conn.Close()
+
+	log.Println("Connected to udp server at ", service)
+
+	n, err := conn.Write([]byte(msg))
+	if err != nil {
+		log.Println("error writing data to server", service)
+		log.Println(err)
+		return
+	}
+
+	if n > 0 {
+		log.Println("Wrote ", n, " bytes to server at ", service)
+	} else {
+		log.Println("Wrote 0 bytes to server. Huh?")
 	}
 }
 
