@@ -59,8 +59,6 @@ func spFeedRateOverride(arg string) {
 		return
 	}
 
-	myport.isFeedRateOverrideOn = true
-
 	// see if they are just querying status
 	if len(args) == 2 {
 		sendStatusOnFeedrateOverride(myport)
@@ -75,6 +73,8 @@ func spFeedRateOverride(arg string) {
 		spErr(errstr)
 		return
 	}
+
+	myport.isFeedRateOverrideOn = true
 
 	myport.feedRateOverride = float32(fro)
 
