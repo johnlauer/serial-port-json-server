@@ -73,6 +73,17 @@ Here's a screenshot of a successful run on Windows x64. Make sure you allow the 
 
 Binaries for Download
 ---------
+Version 1.88
+Build date: Feb 15, 2016
+Nodemcu buffer. Terminal commands. Cayenn protocol for IoT.
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_windows_386.zip">Windows x32</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_windows_amd64.zip">Windows x64</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_386.tar.gz">Linux x32</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_amd64.tar.gz">Linux x64</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_arm.tar.gz">Raspberry Pi (Linux ARM)</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_arm.tar.gz">Beagle Bone Black (Linux ARMv7)</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
+
 Version 1.86
 Build date: Oct 4, 2015
 Latest TinyG buffer and firmware programmer.
