@@ -14,6 +14,12 @@ For example, if you wanted to create a Gcode Sender web app to enable people to 
 
 Thanks go to gary.burd.info for the websocket example in Go. Thanks also go to tarm/goserial for the serial port base implementation. Thanks go to Jarret Luft at well for building the Grbl buffer and helping on global code changes to make everything better.
 
+Front-End Javascript Client
+---------
+There is a very thorough front-end Javascript client available called "widget-spjs" located at http https://github.com/chilipeppr/widget-spjs. This widget is good if you want your web page to talk to the Serial Port JSON Server (SPJS). This widget enables numerous pubsub signals via amplify.js so you can publish to SPJS and receive data back when you subscribe to the appropriate signals.
+
+![](https://github.com/chilipeppr/widget-spjs/raw/master/screenshot.png)
+
 Example Use Case
 ---------
 Here is a screenshot of the Serial Port JSON Server being used inside the ChiliPeppr Serial Port web console app.
@@ -272,6 +278,10 @@ And if the ChiliPeppr workspace were listening for all incoming {"Cmd":"Broadcas
 
 Interesting Branches of SPJS
 -----------
+https://github.com/arduino/arduino-create-agent
+
+The Arduino team is basing their new web IDE on SPJS. That's just awesome! They've definitely taken SPJS to new heights and in different directions. The two projects have branched enough that pull requests aren't clean anymore, but we can still borrow nicely from eachother with new features that either project adds.
+
 https://github.com/benjamind/gpio-json-server/
 
 This is a very interesting branch on this project where Ben took the basic code layout, websocket, and command structure and created a GPIO server version of this app. It's such an interesting and awesome project, it makes me want to combine his code into SPJS to make a full-blown version of serving up hardware ports via JSON and websockets--whether they're serial ports or GPIO ports. Something about that just feels right. The only downside is that no Windows or Mac machines have GPIO, so it would be a very Raspberry Pi specific feature.
