@@ -1,6 +1,8 @@
+# Main location for this repo has been moved to https://github.com/chilipeppr/serial-port-json-server
+
 serial-port-json-server
 =======================
-Version 1.87
+Version 1.87 (See https://github.com/chilipeppr/serial-port-json-server for latest version 1.88+)
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
