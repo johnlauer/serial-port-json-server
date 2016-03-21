@@ -55,7 +55,7 @@ func spFeedRateOverride(arg string) {
 	if !isFound {
 		// we couldn't find the port, so send err
 		//isFroOn = false
-		spErr("We could not find the serial port " + portname + " that you were trying to apply the feedrate override to.")
+		spErr("We could not find the serial port " + portname + " that you were trying to apply the feedrate override to. This error is ok actually because it just means you have not opened the serial port yet.")
 		return
 	}
 
