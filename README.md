@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.88
+Version 1.89
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -363,6 +363,8 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.89
+- Nodemcu buffer fix so it doesn't stall
 Changes in 1.88
 - Added cayenn.go which is the new protocol for ChiliPeppr's Cayenn IoT communication socket service so IoT devices can send announce messages about their presence and SPJS will connect back to them to allow them to broadcast out commands to all connected SPJS websockets as well as have sockets message back to the IoT devices.
 - Added cayenn-sendudp command to overall command list so clients like ChiliPeppr or other connected websocket clients can send back to devices over UDP to enable IoT communications.
