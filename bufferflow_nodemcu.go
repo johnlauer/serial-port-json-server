@@ -106,8 +106,20 @@ func (b *BufferflowNodeMcu) Init() {
 					b.SetPaused(false, 2)
 				}
 
+				// Peek to see if the message back matches the command we just sent in
+				lastCmd, _ := b.q.Peek()
+				lastCmd = regexp.MustCompile("\n").ReplaceAllString(lastCmd, "")
+
+				cmdProcessed := false
+				log.Printf("\t\tSeeing if peek compare to lastCmd makes sense. lastCmd:\"%v\", element:\"%v\"", lastCmd, element)
+				if lastCmd == element {
+					// we just got back the last command so that is a good indicator we got processed
+					log.Printf("\t\tWe got back the same command that was just sent in. That is a sign we are processed.")
+					cmdProcessed = true
+				}
+
 				//check for >|stdin:|= response indicating a line has been processed
-				if b.reCmdDone.MatchString(element) {
+				if cmdProcessed || b.reCmdDone.MatchString(element) {
 
 					// ok, a line has been processed, the if statement below better
 					// be guaranteed to be true, cuz if its not we did something wrong
