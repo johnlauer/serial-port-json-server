@@ -531,13 +531,17 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	go p.writerBuffered()
 	// this is thread to send to serial port regardless of block
 	go p.writerNoBuf()
+	//v1.89 moved unlock here
+	spIsOpening = false
+	spmutex.Unlock()
 	p.reader()
-	//go p.reader()
+	//	go p.reader()
 	//p.done = make(chan bool)
 	//<-p.done
 
-	spIsOpening = false
-	spmutex.Unlock()
+	// prior to 1.89 i had lock here.
+	//	spIsOpening = false
+	//	spmutex.Unlock()
 }
 
 func spHandlerCloseExperimental(p *serport) {
