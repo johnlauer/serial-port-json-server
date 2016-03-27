@@ -52,6 +52,15 @@ func execRun(command string) {
 	argArr := cmdArr[1:]
 	oscmd := exec.Command(cmd, argArr...)
 
+	if *isAllowExec == false {
+		log.Printf("Trying to execute terminal command, but command line switch was not specified to allow for this. Restart spjs with -allowexec command line option to enable.\n")
+		//h.broadcastSys <- []byte("Trying to execute terminal command, but command line switch was not specified to allow for this. Restart spjs with -allowexec command line option to enable.\n")
+		mapD := ExecCmd{ExecStatus: "Error", Id: id, Cmd: cmd, Args: argArr, Output: "Trying to execute terminal command, but command line switch was not specified to allow for this. Restart spjs with -allowexec command line option to enable."}
+		mapB, _ := json.Marshal(mapD)
+		h.broadcastSys <- mapB
+		return
+	}
+
 	// will block here until results are done
 	cmdOutput, err := oscmd.CombinedOutput()
 
