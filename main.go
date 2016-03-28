@@ -76,7 +76,9 @@ func launchSelfLater() {
 
 func main() {
 
+	// parse all passed in command line arguments
 	flag.Parse()
+
 	// setup logging
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 

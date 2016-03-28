@@ -8,10 +8,11 @@ package main
 
 import (
 	"runtime"
-	"strings"
+	//	"strings"
 	//"fmt"
 	"encoding/json"
 	"log"
+	"os"
 	"os/exec"
 	"regexp"
 )
@@ -45,12 +46,30 @@ func execRun(command string) {
 	// trim it
 	cleanCmd = regexp.MustCompile("^\\s*").ReplaceAllString(cleanCmd, "")
 	cleanCmd = regexp.MustCompile("\\s*$").ReplaceAllString(cleanCmd, "")
+	line := cleanCmd
+	argArr := []string{line}
 
+	// OLD APPROACH
 	// now we have to split off the first command and pass the rest as args
-	cmdArr := strings.Split(cleanCmd, " ")
-	cmd := cmdArr[0]
-	argArr := cmdArr[1:]
-	oscmd := exec.Command(cmd, argArr...)
+	/*
+		cmdArr := strings.Split(cleanCmd, " ")
+		cmd := cmdArr[0]
+		argArr := cmdArr[1:]
+		oscmd := exec.Command(cmd, argArr...)
+	*/
+	var cmd string
+	var oscmd *exec.Cmd
+
+	// NEW APPROACH borrowed from mattn/go-shellwords
+	if runtime.GOOS == "windows" {
+		shell := os.Getenv("COMSPEC")
+		cmd = shell
+		oscmd = exec.Command(shell, "/c", line)
+	} else {
+		shell := os.Getenv("SHELL")
+		cmd = shell
+		oscmd = exec.Command(shell, "-c", line)
+	}
 
 	if *isAllowExec == false {
 		log.Printf("Trying to execute terminal command, but command line switch was not specified to allow for this. Restart spjs with -allowexec command line option to enable.\n")
