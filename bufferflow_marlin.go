@@ -184,10 +184,10 @@ func (b *BufferflowMarlin) OnIncomingData(data string) {
 
 			//Check for report output, compare to last report output, if different return to client to update status; otherwise ignore status.
 		} else if b.rpt.MatchString(element) {
-			if element == b.LastStatus {
-				log.Println("Marlin status has not changed, not reporting to client")
-				continue //skip this element as the cnc position has not changed, and move on to the next element.
-			}
+			//if element == b.LastStatus {
+			//	log.Println("Marlin status has not changed, not reporting to client")
+			//	continue //skip this element as the cnc position has not changed, and move on to the next element.
+			//}
 
 			b.LastStatus = element //if we make it here something has changed with the status string and laststatus needs updating
 		}
@@ -378,7 +378,7 @@ func (b *BufferflowMarlin) rptQueryLoop(p *serport) {
 			select {
 			case <-ticker.C:
 
-				n2, err := p.portIo.Write([]byte("M114"))
+				n2, err := p.portIo.Write([]byte("M114\n"))
 
 				log.Print("Just wrote ", n2, " bytes to serial: M114")
 
