@@ -391,6 +391,7 @@ Revisions
 Changes in 1.91
 - Added usblist command
 - Added username/password authentication to exec command to solve security concerns.
+- Marlin buffer updates from Peter van der Walt
 Changes in 1.89
 - Nodemcu buffer fix so it doesn't stall
 Changes in 1.88
