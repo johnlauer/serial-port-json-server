@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.89
+Version 1.91
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -79,6 +79,9 @@ Here's a screenshot of a successful run on Windows x64. Make sure you allow the 
 
 Binaries for Download
 ---------
+You can now always check the Releases page on Github for the latest binaries.
+https://github.com/chilipeppr/serial-port-json-server/releases
+
 Version 1.88
 Build date: Feb 15, 2016
 Nodemcu buffer. Terminal commands. Cayenn protocol for IoT.
@@ -205,6 +208,28 @@ hostname | | Get the hostname of the current SPJS instance
 program portName core:architecture:name $path/to/filename | program com3 arduino:avr:uno c:\myfiles\grbl_9i.hex | Send a hex file to your Arduino board to program it.
 programfromurl portName core:architecture:name url | programfromurl /dev/ttyACM0 arduino:sam:arduino_due_x http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin | Download a hex/bin file from a URL and then send it to your Arduino board to program it.
 cayenn-sendudp | cayenn-sendudp 192.168.1.12 any-msg-to-end-of-line | Send this command into SPJS and the content after the IP address will be forwarded to the IP address you provided via UDP to port 8988 of the device. This enables IoT communication from the browser since browsers can't message with UDP directly.
+usblist | usblist | Send this command to get a list of USB devices. Currently only works on Linux ARM. Typically used to find webcams on your Raspberry Pi. (Available in version 1.91 and later)
+execruntime | execruntime | Get the runtime operating system and processor platform for the host running SPJS. Used to figure out if specific commands or features are available on the host especially when used in conjunction with the "exec" command.
+exec | exec id:123 user:pi pass:blah | Used to execute a shell command on the host. You must specificy a user/password.
+
+Exec and Execruntime 
+-------
+SPJS now supports the exec and execruntime commands. These were added to enable users to fully control their device running SPJS. For example, the Cam widget in ChiliPeppr uses this command to install a WebRTC server on the SPJS host so you don't have any work to do configuring your host. To solve security concerns you have to specify a username/password combination in the command. Keep in mind that this user/pass is sent over the websocket which is cleartext, so only use this feature when behind a firewall or over a VPN. You may also specify the -allowexec option (which is not on by default for security) on the command line when launching SPJS to bypass the requirement for the user/pass to be provided for each exec command.
+
+The exec command was necessary because the growing number of devices being used to create one overall solution is increasing and the configuration and management of those devices is becoming a problem. For example, in the ChiliPeppr world users are working on a Pick and Place machine. The solution will use multiple Raspberry Pi's to host a webcam and do OpenCV machine vision processing. Configuring and aggregating those devices needs to be done by the front-end Javascript widgets and thus these commands solve that problem.
+
+Example of asking SPJS to tell you the runtime environment of the host computer.
+```
+execruntime
+{"ExecRuntimeStatus":"Done","OS":"linux","Arch":"arm","Goroot":"/home/pi/go","NumCpu":4}
+```
+
+Example of executing the echo command with the parameter of done.
+```
+exec id:123 user:pi pass:blah echo "done"
+{"ExecStatus":"Progress","Id":"123","Cmd":"/bin/bash","Args":["echo \"done\""],"Output":"done"}
+{"ExecStatus":"Done","Id":"123","Cmd":"/bin/bash","Args":["echo \"done\""],"Output":"done"}
+```
 
 Programming Your Arduino from SPJS
 -------
@@ -363,6 +388,9 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.91
+- Added usblist command
+- Added username/password authentication to exec command to solve security concerns.
 Changes in 1.89
 - Nodemcu buffer fix so it doesn't stall
 Changes in 1.88
