@@ -77,7 +77,7 @@ func launchSelfLater() {
 func main() {
 
 	// Test USB list
-	GetUsbList()
+	//	GetUsbList()
 
 	// parse all passed in command line arguments
 	flag.Parse()
