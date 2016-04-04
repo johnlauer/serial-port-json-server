@@ -3,7 +3,7 @@ package main
 import (
 	//	"log"
 	"encoding/json"
-	"runtime"
+	// "runtime"
 )
 
 type UsbItem struct {
@@ -39,9 +39,10 @@ func GetUsbList() []UsbItem {
 
 	usbList := []UsbItem{}
 
-	if runtime.GOOS == "linux" && runtime.GOARCH == "arm" {
+	// the call to getUsbList() is now handle by the usb_*.go files
+	//if runtime.GOOS == "linux" && runtime.GOARCH == "arm" {
 		usbList = getUsbList()
-	}
+	//}
 
 	return usbList
 }
