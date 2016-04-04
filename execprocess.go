@@ -7,9 +7,15 @@
 package main
 
 import (
+	"bufio"
+	//	"bytes"
+	"fmt"
+	"strings"
+
+	"golang.org/x/crypto/ssh"
+	//	"go/scanner"
 	"runtime"
-	//	"strings"
-	//"fmt"
+
 	"encoding/json"
 	"log"
 	"os"
@@ -40,10 +46,31 @@ func execRun(command string) {
 	if len(id) > 0 {
 		// we found an id at the start of the exec command, use it
 		cleanCmd = reId.ReplaceAllString(cleanCmd, "")
+		cleanCmd = strings.TrimPrefix(cleanCmd, " ")
 		id = regexp.MustCompile("^id:").ReplaceAllString(id, "")
 	}
 
-	// trim it
+	// grab username and password
+	isAttemptedUserPassValidation := false
+	reUser := regexp.MustCompile("(?i)^user:[a-zA-z0-9_\\-]+")
+	user := reUser.FindString(cleanCmd)
+	if len(user) > 0 {
+		isAttemptedUserPassValidation = true
+		// we found a username at the start of the exec command, use it
+		cleanCmd = reUser.ReplaceAllString(cleanCmd, "")
+		cleanCmd = strings.TrimPrefix(cleanCmd, " ")
+		user = regexp.MustCompile("^user:").ReplaceAllString(user, "")
+	}
+	rePass := regexp.MustCompile("(?i)^pass:[a-zA-z0-9_\\-]+")
+	pass := rePass.FindString(cleanCmd)
+	if len(pass) > 0 {
+		// we found a username at the start of the exec command, use it
+		cleanCmd = rePass.ReplaceAllString(cleanCmd, "")
+		cleanCmd = strings.TrimPrefix(cleanCmd, " ")
+		pass = regexp.MustCompile("^pass:").ReplaceAllString(pass, "")
+	}
+
+	// trim front and back of string
 	cleanCmd = regexp.MustCompile("^\\s*").ReplaceAllString(cleanCmd, "")
 	cleanCmd = regexp.MustCompile("\\s*$").ReplaceAllString(cleanCmd, "")
 	line := cleanCmd
@@ -60,6 +87,9 @@ func execRun(command string) {
 	var cmd string
 	var oscmd *exec.Cmd
 
+	// allow user/pass authentication. assume not valid.
+	isUserPassValid := false
+
 	// NEW APPROACH borrowed from mattn/go-shellwords
 	if runtime.GOOS == "windows" {
 		shell := os.Getenv("COMSPEC")
@@ -69,21 +99,86 @@ func execRun(command string) {
 		shell := os.Getenv("SHELL")
 		cmd = shell
 		oscmd = exec.Command(shell, "-c", line)
+
+		// if posix, i.e. linux or mac just check password via ssh
+		if len(user) > 0 && len(pass) > 0 && checkUserPass(user, pass) {
+			// the password was valid
+			isUserPassValid = true
+			log.Printf("User/pass was valid for request")
+		}
 	}
 
-	if *isAllowExec == false {
-		log.Printf("Trying to execute terminal command, but command line switch was not specified to allow for this. Restart spjs with -allowexec command line option to enable.\n")
+	if isAttemptedUserPassValidation {
+		if isUserPassValid == false {
+			errMsg := fmt.Sprintf("User:%s and password were not valid so not able to execute cmd.", user)
+			log.Println(errMsg)
+			mapD := ExecCmd{ExecStatus: "Error", Id: id, Cmd: cmd, Args: argArr, Output: errMsg}
+			mapB, _ := json.Marshal(mapD)
+			h.broadcastSys <- mapB
+			return
+		} else {
+			log.Println("User:%s and password were valid. Running command.", user)
+		}
+	} else if *isAllowExec == false {
+		log.Printf("Error trying to execute terminal command. No user/pass provided or command line switch was not specified to allow exec command. Provide a valied username/password or restart spjs with -allowexec command line option to exec command.")
 		//h.broadcastSys <- []byte("Trying to execute terminal command, but command line switch was not specified to allow for this. Restart spjs with -allowexec command line option to enable.\n")
-		mapD := ExecCmd{ExecStatus: "Error", Id: id, Cmd: cmd, Args: argArr, Output: "Trying to execute terminal command, but command line switch was not specified to allow for this. Restart spjs with -allowexec command line option to enable."}
+		mapD := ExecCmd{ExecStatus: "Error", Id: id, Cmd: cmd, Args: argArr, Output: "Error trying to execute terminal command. No user/pass provided or command line switch was not specified to allow exec command. Provide a valied username/password or restart spjs with -allowexec command line option to exec command."}
+		mapB, _ := json.Marshal(mapD)
+		h.broadcastSys <- mapB
+		return
+	} else {
+		log.Println("Running cmd cuz -allowexec specified as command line option.")
+	}
+
+	// OLD APPROACH where we would queue up entire command and wait until done
+	// will block here until results are done
+	//cmdOutput, err := oscmd.CombinedOutput()
+
+	//endProgress()
+
+	// NEW APPROACH. Stream stdout while it is running so we get more real-time updates.
+	cmdOutput := ""
+	cmdReader, err := oscmd.StdoutPipe()
+	if err != nil {
+		log.Println(os.Stderr, "Error creating StdoutPipe for Cmd", err)
+		//os.Exit(1)
+		mapD := ExecCmd{ExecStatus: "Error", Id: id, Cmd: cmd, Args: argArr, Output: err.Error()}
 		mapB, _ := json.Marshal(mapD)
 		h.broadcastSys <- mapB
 		return
 	}
 
-	// will block here until results are done
-	cmdOutput, err := oscmd.CombinedOutput()
+	scanner := bufio.NewScanner(cmdReader)
+	go func() {
+		for scanner.Scan() {
+			log.Printf("stdout > %s\n", scanner.Text())
+			mapD := ExecCmd{ExecStatus: "Progress", Id: id, Cmd: cmd, Args: argArr, Output: scanner.Text()}
+			mapB, _ := json.Marshal(mapD)
+			h.broadcastSys <- mapB
+			cmdOutput += scanner.Text()
+		}
+	}()
 
-	endProgress()
+	err = oscmd.Start()
+	if err != nil {
+		log.Println(os.Stderr, "Error starting Cmd", err)
+		//os.Exit(1)
+		mapD := ExecCmd{ExecStatus: "Error", Id: id, Cmd: cmd, Args: argArr, Output: fmt.Sprintf("Error starting Cmd", err)}
+		mapB, _ := json.Marshal(mapD)
+		h.broadcastSys <- mapB
+		return
+	}
+
+	// block here until command done
+	err = oscmd.Wait()
+	/*if err != nil {
+			fmt.Fprintln(os.Stderr, "Error waiting for Cmd", err)
+	//		os.Exit(1)
+			mapD := ExecCmd{ExecStatus: "Error", Id: id, Cmd: cmd, Args: argArr, Output: fmt.Sprintf(os.Stderr, "Error waiting for Cmd", err)}
+			mapB, _ := json.Marshal(mapD)
+			h.broadcastSys <- mapB
+			return
+		}*/
 
 	if err != nil {
 		log.Printf("Command finished with error: %v "+string(cmdOutput), err)
@@ -121,4 +216,46 @@ func execRuntime() {
 	if err == nil {
 		h.broadcastSys <- bm
 	}
+}
+
+func checkUserPass(user string, pass string) bool {
+	// We check the validity of the username/password
+	// An SSH client is represented with a ClientConn. Currently only
+	// the "password" authentication method is supported.
+	//
+	// To authenticate with the remote server you must pass at least one
+	// implementation of AuthMethod via the Auth field in ClientConfig.
+	config := &ssh.ClientConfig{
+		User: user,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(pass),
+		},
+	}
+	client, err := ssh.Dial("tcp", "localhost:22", config)
+	if err != nil {
+		log.Println("Failed to dial: " + err.Error())
+		return false
+	}
+
+	// Each ClientConn can support multiple interactive sessions,
+	// represented by a Session.
+	session, err := client.NewSession()
+	if err != nil {
+		log.Println("Failed to create session: " + err.Error())
+		return false
+	}
+	defer session.Close()
+
+	// Once a Session is created, you can execute a single command on
+	// the remote side using the Run method.
+	/*
+		var b bytes.Buffer
+		session.Stdout = &b
+		if err := session.Run("echo spjs-authenticated"); err != nil {
+			log.Println("Failed to run: " + err.Error())
+			return false
+		}
+		log.Println(b.String())
+	*/
+	return true
 }

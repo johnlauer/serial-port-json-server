@@ -243,7 +243,8 @@ func checkCmd(m []byte) {
 		go execRun(s)
 	} else if strings.HasPrefix(sl, "cayenn-sendudp") {
 		cayennSendUdp(s)
-
+	} else if strings.HasPrefix(sl, "usblist") {
+		SendUsbList()
 		/*
 			} else if strings.HasPrefix(sl, "gethost") {
 				hostname, err := gpio.Host()

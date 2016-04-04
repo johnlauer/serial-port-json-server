@@ -1,4 +1,4 @@
-// Version 1.89
+// Version 1.91
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	version      = "1.89"
-	versionFloat = float32(1.89)
+	version      = "1.91"
+	versionFloat = float32(1.91)
 	addr         = flag.String("addr", ":8989", "http service address")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
 	//verbose = flag.Bool("v", true, "show debug logging")
@@ -75,6 +75,9 @@ func launchSelfLater() {
 }
 
 func main() {
+
+	// Test USB list
+	GetUsbList()
 
 	// parse all passed in command line arguments
 	flag.Parse()
