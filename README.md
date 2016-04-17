@@ -179,10 +179,10 @@ Video tutorial of building SPJS on a Mac: https://www.youtube.com/watch?v=4Hou06
 	export GOPATH=/home/john/go
 	On Windows, use the Environment Variables dialog by right-click My Computer to create GOPATH
 5. Change directory into your GOPATH
-6. Type "go get github.com/johnlauer/serial-port-json-server". This will retrieve this Github project and all dependent projects. It takes some time to run this.
-7. Then change direcory into src\github.com\johnlauer\serial-port-json-server. 
-8. Type "go build" when you're inside that directory and it will create a binary called serial-port-json-server
-9. Run it by typing ./serial-port-json-server or on Windows run serial-port-json-server.exe
+6. Type `go get github.com/chilipeppr/serial-port-json-server`. This will retrieve this Github project and all dependent projects. It takes some time to run this.
+7. Then change direcory into `src/github.com/chilipeppr/serial-port-json-server`. 
+8. Type `go build` when you're inside that directory and it will create a binary called serial-port-json-server
+9. Run it by typing `./serial-port-json-server` or on Windows run serial-port-json-server.exe
 10. If you have a firewall on the computer running the serial-port-json-server you must allow port 8989 in the firewall.
 
 Supported Commands
