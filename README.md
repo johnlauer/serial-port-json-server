@@ -155,10 +155,16 @@ Feed Rate Override
 There is a new feature available as of version 1.83 which is Feed Rate Override. It can be triggered by sending in a command like the following:
 
 `fro COM4 0.5`
+`fro /dev/ttyUSB0 0.5`
 
 This command asks SPJS to override the existing feed rate and reduce it by half. If you have a feedrate of 200 then the command above would bring it to 100 by multiplying 200 * 0.5 = 100. To turn off the feed rate override set it back to 0 with a command such as:
 
 `fro COM4 0.0`
+`fro /dev/ttyUSB0 0.0`
+
+To increase speed 2x
+
+`fro COM4 2`
 
 How to Build
 ---------
@@ -374,6 +380,10 @@ case "$1" in
     ;;
 esac
 </pre>
+
+Make your script executable
+
+`sudo chmod +x /etc/init.d/serial-port-json-server`
 
 Then you need to run the following command to setup your /etc/init.d script so it starts on boot up of your computer...
 
