@@ -1,4 +1,4 @@
-// Version 1.91
+// Version 1.92
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	version      = "1.91"
-	versionFloat = float32(1.91)
+	version      = "1.92"
+	versionFloat = float32(1.92)
 	addr         = flag.String("addr", ":8989", "http service address")
 	saddr        = flag.String("saddr", ":8990", "https service address")
 	scert        = flag.String("scert", "cert.pem", "https certificate file")

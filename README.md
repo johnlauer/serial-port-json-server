@@ -400,9 +400,10 @@ Revisions
 -------
 Changes in 1.92
 - HTTPS and WSS support courtesy of Stewart Allen. Sample cert and key provided in release zip/tar file. Copy sample files to cert.pem and key.pem to have SPJS enable HTTPS/WSS support or use command line parameters of -scert mycert.pem -skey mykey.pem to specify files.
+- Added fix for opening 2nd or more serial ports where there was a block opening an additional port
 
 Changes in 1.91
-- Added usblist command
+- Added usblist command so can list USB devices like webcams. Only works on Linux for now.
 - Added username/password authentication to exec command to solve security concerns.
 - Marlin buffer updates from Peter van der Walt
 
