@@ -368,9 +368,9 @@ func (p *serport) writerNoBuf() {
 var spmutex = &sync.Mutex{}
 var spIsOpening = false
 
-func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) {
+func spHandlerOpen(portname string, baud int, byteSize byte, parity byte, stopBits byte, buftype string, isSecondary bool) {
 
-	log.Print("Inside spHandler")
+	log.Printf("Inside spHandler: %v %v %v %v %v %v", portname, baud, byteSize, parity, stopBits, buftype)
 	spmutex.Lock()
 	if spIsOpening {
 		log.Println("We are currently in the middle of opening a port. Returning...")
@@ -406,6 +406,11 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	conf.Name = portname
 	conf.RtsOn = true
 	conf.DtrOn = false
+	conf.ByteSize = byteSize
+	conf.Parity = parity
+	conf.StopBits = stopBits
+
+    
 
 	// Needed for Arduino serial library
 	/*

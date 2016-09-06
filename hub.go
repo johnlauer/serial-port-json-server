@@ -54,7 +54,7 @@ func (h *hub) run() {
 			h.connections[c] = true
 			// send supported commands
 			c.send <- []byte("{\"Version\" : \"" + version + "\"} ")
-			c.send <- []byte("{\"Commands\" : [\"list\", \"open [portName] [baud] [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"sendjson {P:portName, Data:[{D:cmdStr, Id:idStr}]}\",  \"close [portName]\", \"bufferalgorithms\", \"baudrates\", \"restart\", \"exit\", \"broadcast [anythingToRegurgitate]\", \"hostname\", \"version\", \"program [portName] [core:architecture:name] [path/to/binOrHexFile]\", \"programfromurl [portName] [core:architecture:name] [urlToBinOrHexFile]\", \"execruntime\", \"exec [command] [arg1] [arg2] [...]\"]} ")
+			c.send <- []byte("{\"Commands\" : [\"list\", \"open portName baud [bufferAlgorithm (optional)]\", \"open portName baud databits parity stopbits [bufferAlgorithm (optional)]\", \"send [portName] [cmd]\", \"sendnobuf [portName] [cmd]\", \"sendjson {P:portName, Data:[{D:cmdStr, Id:idStr}]}\",  \"close [portName]\", \"bufferalgorithms\", \"baudrates\", \"restart\", \"exit\", \"broadcast [anythingToRegurgitate]\", \"hostname\", \"version\", \"program [portName] [core:architecture:name] [path/to/binOrHexFile]\", \"programfromurl [portName] [core:architecture:name] [urlToBinOrHexFile]\", \"execruntime\", \"exec [command] [arg1] [arg2] [...]\"]} ")
 			c.send <- []byte("{\"Hostname\" : \"" + *hostname + "\"} ")
 		case c := <-h.unregister:
 			delete(h.connections, c)
@@ -116,6 +116,38 @@ func (h *hub) run() {
 	}
 }
 
+func parseParity(s string) int {
+    switch s {
+        case "NONE":
+            return 0
+        case "ODD":
+            return 1
+        case "EVEN":
+            return 2
+        case "MARK":
+            return 3
+        case "SPACE":
+            return 4
+    }
+
+    go spErr("Problem parsing parity " + s)
+    return 0
+}
+
+func parseStopBits(s string) int {
+    switch s {
+        case "1":
+            return 0
+        case "1.5":
+            return 1
+        case "2":
+            return 2
+    }
+
+    go spErr("Problem parsing stopBits " + s)
+    return 0
+}
+
 func checkCmd(m []byte) {
 	//log.Print("Inside checkCmd")
 	s := string(m[:])
@@ -137,10 +169,12 @@ func checkCmd(m []byte) {
 
 		// remove newline
 		args := strings.Split(strings.TrimSpace(s), " ")
+
 		if len(args) < 3 {
 			go spErr("You did not specify a port and baud rate in your open cmd")
 			return
 		}
+
 		if len(args[1]) < 1 {
 			go spErr("You did not specify a serial port")
 			return
@@ -152,16 +186,38 @@ func checkCmd(m []byte) {
 			go spErr("Problem converting baud rate " + args[2])
 			return
 		}
+
+        // default values
+        byteSize := 8
+        parity := 0
+        stopBits := 0
+        bufferAlgorithmIndex := 3;
+
+		if len(args) > 3 {
+            byteSizeStr := strings.Replace(args[3], "\n", "", -1)
+            byteSize, err = strconv.Atoi(byteSizeStr)
+            if err != nil {
+                go spErr("Problem converting byteSize " + args[3])
+                return
+            }
+
+            parity = parseParity(strings.Replace(args[4], "\n", "", -1))
+
+            stopBits = parseStopBits(strings.Replace(args[5], "\n", "", -1))
+
+            bufferAlgorithmIndex = 6;
+        }
+
 		// pass in buffer type now as string. if user does not
 		// ask for a buffer type pass in empty string
 		bufferAlgorithm := ""
-		if len(args) > 3 {
+		if len(args) > bufferAlgorithmIndex {
 			// cool. we got a buffer type request
-			buftype := strings.Replace(args[3], "\n", "", -1)
+			buftype := strings.Replace(args[bufferAlgorithmIndex], "\n", "", -1)
 			bufferAlgorithm = buftype
 		}
-		go spHandlerOpen(args[1], baud, bufferAlgorithm, isSecondary)
 
+        go spHandlerOpen(args[1], baud, uint8(byteSize), uint8(parity), uint8(stopBits), bufferAlgorithm, isSecondary)
 	} else if strings.HasPrefix(sl, "close") {
 
 		log.Printf("About to split close commands. cmd:\"%v\"", s)
@@ -241,7 +297,6 @@ func checkCmd(m []byte) {
 		execRuntime()
 	} else if strings.HasPrefix(sl, "exec") {
 		go execRun(s)
-
 		/*
 			} else if strings.HasPrefix(sl, "gethost") {
 				hostname, err := gpio.Host()
