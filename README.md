@@ -174,6 +174,7 @@ Command | Example | Description
 ------- | ------- | -------
 list    |         | Lists all available serial ports on your device
 open portName baudRate [bufferAlgorithm] | open /dev/ttyACM0 115200 tinyg | Opens a serial port. The comPort should be the Name of the port inside the list response such as COM2 or /dev/ttyACM0. The baudrate should be a rate from the baudrates command or a typical baudrate such as 9600 or 115200. A bufferAlgorithm can be optionally specified such as "tinyg" (or in the future "grbl" if somebody writes it) or write your own.
+open portName baudRate dataBits parity stopBits [bufferAlgorithm] | open COM4 9600 7 EVEN 1 tinyg | detailed open command where you can set 3 extra parameters: dataBits (usually: 7 | 8) parity (NONE | ODD | EVEN | MARK | SPACE) stopBits (1 | 1.5 | 2)
 sendjson {} | {"P":"COM22","Data":[{"D":"!~\n","Id":"234"},{"D":"{\"sr\":\"\"}\n","Id":"235"}]} | See Wiki page at https://github.com/johnlauer/serial-port-json-server/wiki
 send portName data | send /dev/ttyACM0 G1 X10.5 Y2 F100\n | Send your data to the serial port. Remember to send a newline in your data if your serial port expects it.
 sendnobuf portName data | send COM22 {"qv":0}\n | Send your data and bypass the bufferFlowAlgorithm if you specified one.
