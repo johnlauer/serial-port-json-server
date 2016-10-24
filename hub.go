@@ -243,6 +243,8 @@ func checkCmd(m []byte) {
 		go execRun(s)
 	} else if strings.HasPrefix(sl, "cayenn-sendudp") {
 		cayennSendUdp(s)
+	} else if strings.HasPrefix(sl, "cayenn-sendtcp") {
+		cayennSendTcp(s)
 	} else if strings.HasPrefix(sl, "usblist") {
 		SendUsbList()
 		/*

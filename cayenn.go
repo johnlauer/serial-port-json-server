@@ -104,6 +104,7 @@ func udpServerRun() {
 	}
 }
 
+// Called from hub.go as entry point
 func cayennSendUdp(s string) {
 	// we get here if a client sent into spjs the command
 	// cayenn-sendudp 192.168.1.12 any-msg-to-end-of-line
@@ -234,4 +235,72 @@ func makeTcpConnBackToDevice(ipaddr string) {
 			break
 		}
 	}
+}
+
+// Called from hub.go as entry point
+func cayennSendTcp(s string) {
+	// we get here if a client sent into spjs the command
+	// cayenn-sendtcp 192.168.1.12 any-msg-to-end-of-line
+	args := strings.SplitN(s, " ", 3)
+
+	// make sure we got 3 args
+	if len(args) < 3 {
+		spErr("Error parsing cayenn-sendtcp. Returning. msg:" + s)
+		return
+	}
+
+	ip := args[1]
+	if len(ip) < 7 {
+		spErr("Error parsing IP address for cayenn-sendtcp. Returning. msg:" + s)
+		return
+	}
+	msg := args[2]
+	log.Println("cayenn-sendtcp ip:", ip, "msg:", msg)
+	cayennSendTcpMsg(ip, ":8988", msg)
+}
+
+// For now just connect, send, and then disconnect. This keeps stuff simple
+// but it does create overhead. However, it is similar to RESTful web calls
+func cayennSendTcpMsg(ipaddr string, port string, msg string) {
+
+	// This method sends a message to a specific IP address / port over TCP
+	var service = ipaddr + port
+
+	conn, err := net.Dial("tcp", service)
+	log.Println("Making TCP connection to:", service)
+
+	if err != nil {
+		log.Println("Error trying to make TCP conn. err:", err)
+		return
+	}
+	defer func() {
+		log.Println("Closing TCP conn to:", service)
+		conn.Close()
+	}()
+
+	n, err := conn.Write([]byte(msg))
+	if err != nil {
+		log.Println("Write to server failed:", err.Error())
+		return
+	}
+
+	log.Println("Wrote n:", n, "bytes to server")
+
+	// close connection immediately
+	conn.Close()
+
+	//	connbuf := bufio.NewReader(conn)
+	//	for {
+	//		str, err := connbuf.ReadString('\n')
+	//		if len(str) > 0 {
+	//			log.Println("Got msg on TCP client from ip:", service)
+	//			log.Println(str)
+	//			h.broadcastSys <- []byte(str)
+	//		}
+
+	//		if err != nil {
+	//			break
+	//		}
+	//	}
+
 }
