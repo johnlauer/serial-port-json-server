@@ -110,7 +110,7 @@ func udpServerRun() {
 			arm.YourDeviceId = am.MyDeviceId
 			arm.ServerIp = ServerConn.LocalAddr().String()
 			arm.Widget = am.Widget
-			arm.JsonTag = am.JsonTag
+			//arm.JsonTag = am.JsonTag
 
 			sendUdp(arm, m.Addr.IP, ":8988")
 			go sendTcp(arm, m.Addr.IP, ":8988")
