@@ -44,7 +44,7 @@ type ServerAnnounceResponseMsg struct {
 
 func udpServerRun() {
 
-	/* Lets prepare a address at any address at port 10001*/
+	/* Lets prepare a address at any address at port 8988*/
 	ServerAddr, err := net.ResolveUDPAddr("udp", ":8988")
 	if err != nil {
 		log.Println("Error: ", err)
@@ -75,6 +75,19 @@ func udpServerRun() {
 			m.Addr.Network = addr.Network()
 			m.Addr.Port = addr.Port
 
+			// if the udp message was from us, i.e. we sent out a broadcast so
+			// we got a copy back, just ignore
+			MyIp := ServerConn.LocalAddr().String()
+			// drop port, cuz we don't care about it. we have known ports
+			re := regexp.MustCompile(":\\d+$")
+			MyIp = re.ReplaceAllString(MyIp, "")
+			externIP, _ := externalIP()
+			// print("Checking if from me ", addr.IP.String(), "<>", externIP)
+			if addr.IP.String() == externIP {
+				log.Println("Got msg back from ourself, so dropping.")
+				break
+			}
+
 			var am ClientAnnounceMsg
 			err := json.Unmarshal([]byte(buf[0:n]), &am)
 			if err != nil {
@@ -91,6 +104,7 @@ func udpServerRun() {
 			}
 
 			// send back our own AnnounceRecv
+
 			var arm ServerAnnounceResponseMsg
 			arm.Announce = "i-am-your-server"
 			arm.YourDeviceId = am.MyDeviceId
@@ -99,7 +113,11 @@ func udpServerRun() {
 			arm.JsonTag = am.JsonTag
 
 			sendUdp(arm, m.Addr.IP, ":8988")
-			go makeTcpConnBackToDevice(m.Addr.IP)
+			go sendTcp(arm, m.Addr.IP, ":8988")
+
+			// cayennSendTcpMsg(m.Addr.IP, ":8988", bmsg)
+			// go makeTcpConnBackToDevice(m.Addr.IP)
+
 		}
 	}
 }
@@ -156,6 +174,8 @@ func cayennSendUdpMsg(ipaddr string, port string, msg string) {
 	}
 }
 
+// This method is similar to cayennSendUdp but it takes in a struct and json
+// serializes it
 func sendUdp(sarm ServerAnnounceResponseMsg, ipaddr string, port string) {
 
 	var service = ipaddr + port
@@ -303,4 +323,48 @@ func cayennSendTcpMsg(ipaddr string, port string, msg string) {
 	//		}
 	//	}
 
+}
+
+// This method is similar to cayennSendTcp but it takes in a struct and json
+// serializes it
+func sendTcp(sarm ServerAnnounceResponseMsg, ipaddr string, port string) {
+
+	// This method sends a message to a specific IP address / port over TCP
+	var service = ipaddr + port
+
+	conn, err := net.Dial("tcp", service)
+	log.Println("Making TCP connection to:", service)
+
+	if err != nil {
+		log.Println("Error trying to make TCP conn. err:", err)
+		return
+	}
+	defer func() {
+		log.Println("Closing TCP conn to:", service)
+		conn.Close()
+	}()
+
+	// add our server ip to packet because esp8266 and Lua make it near impossible
+	// to determine the ip the udp packet came from, so we'll include it in the payload
+	sarm.ServerIp = conn.LocalAddr().String()
+	// drop port, cuz we don't care about it. we have known ports
+	re := regexp.MustCompile(":\\d+$")
+	sarm.ServerIp = re.ReplaceAllString(sarm.ServerIp, "")
+
+	bmsg, err := json.Marshal(sarm)
+	if err != nil {
+		log.Println("Error marshalling json for sarm:", sarm, "err:", err)
+		return
+	}
+
+	n, err := conn.Write(bmsg)
+	if err != nil {
+		log.Println("Write to server failed:", err.Error())
+		return
+	}
+
+	log.Println("Wrote n:", n, "bytes to server")
+
+	// close connection immediately
+	conn.Close()
 }
