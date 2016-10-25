@@ -85,7 +85,7 @@ func udpServerRun() {
 			// print("Checking if from me ", addr.IP.String(), "<>", externIP)
 			if addr.IP.String() == externIP {
 				log.Println("Got msg back from ourself, so dropping.")
-				break
+				continue
 			}
 
 			var am ClientAnnounceMsg
