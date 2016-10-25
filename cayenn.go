@@ -92,6 +92,7 @@ func udpServerRun() {
 			err := json.Unmarshal([]byte(buf[0:n]), &am)
 			if err != nil {
 				log.Println("Err unmarshalling UDP inbound message from device. err:", err)
+				continue
 			}
 			m.Announce = am.Announce
 			m.Widget = am.Widget
@@ -104,20 +105,26 @@ func udpServerRun() {
 			}
 
 			// send back our own AnnounceRecv
+			// but only if the incoming message was an "Announce":"i-am-a-client"
+			//re2 := regexp.MustCompile('"Announce":"i-am-a-client"')
+			//if re2.MatchString()
+			if am.Announce == "i-am-a-client" {
 
-			var arm ServerAnnounceResponseMsg
-			arm.Announce = "i-am-your-server"
-			arm.YourDeviceId = am.MyDeviceId
-			arm.ServerIp = ServerConn.LocalAddr().String()
-			arm.Widget = am.Widget
-			//arm.JsonTag = am.JsonTag
+				var arm ServerAnnounceResponseMsg
+				arm.Announce = "i-am-your-server"
+				arm.YourDeviceId = am.MyDeviceId
+				arm.ServerIp = ServerConn.LocalAddr().String()
+				arm.Widget = am.Widget
+				//arm.JsonTag = am.JsonTag
 
-			sendUdp(arm, m.Addr.IP, ":8988")
-			go sendTcp(arm, m.Addr.IP, ":8988")
+				sendUdp(arm, m.Addr.IP, ":8988")
+				go sendTcp(arm, m.Addr.IP, ":8988")
 
-			// cayennSendTcpMsg(m.Addr.IP, ":8988", bmsg)
-			// go makeTcpConnBackToDevice(m.Addr.IP)
-
+				// cayennSendTcpMsg(m.Addr.IP, ":8988", bmsg)
+				// go makeTcpConnBackToDevice(m.Addr.IP)
+			} else {
+				log.Println("The incoming msg was not an i-am-client announce so not sending back response")
+			}
 		}
 	}
 }
