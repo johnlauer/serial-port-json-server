@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.92
+Version 1.93
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -214,6 +214,7 @@ hostname | | Get the hostname of the current SPJS instance
 program portName core:architecture:name $path/to/filename | program com3 arduino:avr:uno c:\myfiles\grbl_9i.hex | Send a hex file to your Arduino board to program it.
 programfromurl portName core:architecture:name url | programfromurl /dev/ttyACM0 arduino:sam:arduino_due_x http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin | Download a hex/bin file from a URL and then send it to your Arduino board to program it.
 cayenn-sendudp | cayenn-sendudp 192.168.1.12 any-msg-to-end-of-line | Send this command into SPJS and the content after the IP address will be forwarded to the IP address you provided via UDP to port 8988 of the device. This enables IoT communication from the browser since browsers can't message with UDP directly.
+cayenn-sendtcp | cayenn-sendtcp 192.168.1.12 any-msg-to-end-of-line | Send this command into SPJS and the content after the IP address will be forwarded to the IP address you provided via TCP to port 8988 of the device. This enables IoT communication from the browser since browsers can't message with TCP directly.
 usblist | usblist | Send this command to get a list of USB devices. Currently only works on Linux ARM. Typically used to find webcams on your Raspberry Pi. (Available in version 1.91 and later)
 execruntime | execruntime | Get the runtime operating system and processor platform for the host running SPJS. Used to figure out if specific commands or features are available on the host especially when used in conjunction with the "exec" command.
 exec | exec id:123 user:pi pass:blah | Used to execute a shell command on the host. You must specificy a user/password.
