@@ -335,7 +335,7 @@ func (b *BufferflowNodeMcu) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bo
 	reRestart := regexp.MustCompile("^\\s*node.restart\\(\\)")
 	if reRestart.MatchString(cmd) {
 		log.Printf("\t\tWe found a node.restart() and thus we will wipe buffer")
-		//b.ReleaseLock()
+		b.ReleaseLock()
 		return true
 	} else {
 		return false
