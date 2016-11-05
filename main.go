@@ -1,4 +1,4 @@
-// Version 1.92
+// Version 1.93
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -22,14 +22,14 @@ import (
 )
 
 var (
-	version      = "1.92"
-	versionFloat = float32(1.92)
+	version      = "1.93"
+	versionFloat = float32(1.93)
 	addr         = flag.String("addr", ":8989", "http service address")
 	saddr        = flag.String("saddr", ":8990", "https service address")
 	scert        = flag.String("scert", "cert.pem", "https certificate file")
 	skey         = flag.String("skey", "key.pem", "https key file")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
-	//verbose = flag.Bool("v", true, "show debug logging")
+	//	verbose = flag.Bool("v", true, "show debug logging")
 	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
