@@ -40,7 +40,8 @@ func (b *BufferflowGrbl) Init() {
 	b.SetPaused(false, 1)
 
 	log.Println("Initting GRBL buffer flow")
-	b.BufferMax = 127 //max buffer size 127 bytes available
+	// b.BufferMax = 127 //max buffer size 127 bytes available
+	b.BufferMax = 125 // changed to be safe with extra chars
 
 	b.q = NewQueue()
 
