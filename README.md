@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.93
+Version 1.94
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -82,7 +82,6 @@ Binaries for Download
 You can now always check the Releases page on Github for the latest binaries.
 https://github.com/chilipeppr/serial-port-json-server/releases
 
-<!--
 Version 1.88
 Build date: Feb 15, 2016
 Nodemcu buffer. Terminal commands. Cayenn protocol for IoT.
@@ -107,6 +106,7 @@ Latest TinyG buffer and firmware programmer.
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_linux_arm.tar.gz">Beagle Bone Black (Linux ARMv7)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.86/serial-port-json-server-1.86_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
       
+<!--
 Version 1.83
 Build date: July 19, 2015
 Build has Arduino/Atmel Programmer built in and Marlin buffer support.
@@ -120,6 +120,7 @@ Please note: All TinyG and TinyG G2 users should use 1.83. All Grbl users on Lin
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_amd64.tar.gz">Linux x64</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_arm.tar.gz">Raspberry Pi / Beagle Bone Black (Linux ARM)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.83/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
+-->
 
 Version 1.80
 Build date: Mar 8, 2015
@@ -136,6 +137,7 @@ Build has new garbage collection, "broadcast" tag, and "hostname" tag support.
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_1.80_linux_armv8.tar.gz">Linux ARMv8 (AppliedMicro X-Gene)</a>
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.80/serial-port-json-server_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
 
+<!--
 Version 1.77
 Build date: Feb 1, 2015
 - <a class="list-group-item" href="http://chilipeppr.com/downloads/v1.77/serial-port-json-server_windows_386.zip">Windows x32</a>
