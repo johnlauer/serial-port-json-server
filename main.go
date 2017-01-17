@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	version      = "1.93"
-	versionFloat = float32(1.93)
+	version      = "1.94"
+	versionFloat = float32(1.94)
 	addr         = flag.String("addr", ":8989", "http service address")
 	saddr        = flag.String("saddr", ":8990", "https service address")
 	scert        = flag.String("scert", "cert.pem", "https certificate file")
