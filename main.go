@@ -29,8 +29,8 @@ var (
 	scert        = flag.String("scert", "cert.pem", "https certificate file")
 	skey         = flag.String("skey", "key.pem", "https key file")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
-	//	verbose = flag.Bool("v", true, "show debug logging")
-	verbose = flag.Bool("v", false, "show debug logging")
+	verbose = flag.Bool("v", true, "show debug logging")
+	//	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
 	isAllowExec  = flag.Bool("allowexec", false, "Allow terminal commands to be executed")
@@ -172,11 +172,15 @@ func main() {
 	// launch our dummy data routine
 	//go d.run()
 
-	// Run the UDP Server that lets us listen for devices announcing they
-	// are alive on our local network. This is used by ESP8266 devices that
+	// Run the UDP & TCP Server that are part of the Cayenn protocol
+	// This lets us listen for devices announcing they
+	// are alive on our local network, or are sending data from sensors,
+	// or acknowledgements to commands we send the device.
+	// This is used by Cayenn devices such as ESP8266 devices that
 	// can speak to SPJS and allow SPJS to pass through their data back to
-	// clients such as ChiliPeppr
+	// clients such as ChiliPeppr.
 	go udpServerRun()
+	go tcpServerRun()
 
 	// Setup GPIO server
 	// Ignore GPIO for now, but it would be nice to get GPIO going natively
