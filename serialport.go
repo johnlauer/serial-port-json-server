@@ -371,12 +371,13 @@ var spIsOpening = false
 func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) {
 
 	log.Print("Inside spHandler")
-	spmutex.Lock()
+
 	if spIsOpening {
 		log.Println("We are currently in the middle of opening a port. Returning...")
 		return
 	}
 	spIsOpening = true
+	spmutex.Lock()
 
 	var out bytes.Buffer
 
