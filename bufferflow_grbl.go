@@ -40,7 +40,8 @@ func (b *BufferflowGrbl) Init() {
 	b.SetPaused(false, 1)
 
 	log.Println("Initting GRBL buffer flow")
-	b.BufferMax = 127 //max buffer size 127 bytes available
+	// b.BufferMax = 127 //max buffer size 127 bytes available
+	b.BufferMax = 125 // changed to be safe with extra chars
 
 	b.q = NewQueue()
 
@@ -293,7 +294,8 @@ func (b *BufferflowGrbl) SeeIfSpecificCommandsShouldSkipBuffer(cmd string) bool 
 	// remove comments
 	//cmd = regexp.MustCompile("\\(.*?\\)").ReplaceAllString(cmd, "")
 	//cmd = regexp.MustCompile(";.*").ReplaceAllString(cmd, "")
-	if match, _ := regexp.MatchString("[!~\\?]|(\u0018)", cmd); match {
+	// adding some new regexp to match real-time commands for grbl 1 version 
+	if match, _ := regexp.MatchString("[!~\\?]|(\u0018)|[\u0080-\u00FF]", cmd); match {
 		log.Printf("Found cmd that should skip buffer. cmd:%v\n", cmd)
 		return true
 	}
