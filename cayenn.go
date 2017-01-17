@@ -10,9 +10,10 @@ import (
 )
 
 type Addr struct {
-	IP      string
-	Port    int
-	Network string
+	IP       string
+	Port     int
+	Network  string
+	TcpOrUdp string
 }
 
 type DataAnnounce struct {
@@ -59,7 +60,7 @@ func udpServerRun() {
 	}
 	defer ServerConn.Close()
 
-	log.Println("UDP server running on port 8988 to listen for incoming device announcements.")
+	log.Println("UDP server running on port 8988 to listen for incoming device announcements and unguaranteed data.")
 	buf := make([]byte, 1024)
 
 	for {
@@ -74,6 +75,7 @@ func udpServerRun() {
 			m.Addr.IP = addr.IP.String()
 			m.Addr.Network = addr.Network()
 			m.Addr.Port = addr.Port
+			m.Addr.TcpOrUdp = "udp"
 
 			// if the udp message was from us, i.e. we sent out a broadcast so
 			// we got a copy back, just ignore
@@ -99,6 +101,7 @@ func udpServerRun() {
 			m.JsonTag = am.JsonTag
 			m.DeviceId = am.MyDeviceId
 
+			// send message to websocket clients, i.e. ChiliPeppr
 			bm, err := json.Marshal(m)
 			if err == nil {
 				h.broadcastSys <- bm
@@ -117,6 +120,12 @@ func udpServerRun() {
 				arm.Widget = am.Widget
 				//arm.JsonTag = am.JsonTag
 
+				// we send back reverse acknowledgement on both UDP and TCP
+				// but long term we should likely just send a TCP response back
+				// because Cayenn devices will likely long term need to store what
+				// server they are interacting with, however, the debate is i have
+				// Cayenn devices mostly just sending back broadcast messages to entire
+				// network and it's working well
 				sendUdp(arm, m.Addr.IP, ":8988")
 				go sendTcp(arm, m.Addr.IP, ":8988")
 
@@ -373,5 +382,82 @@ func sendTcp(sarm ServerAnnounceResponseMsg, ipaddr string, port string) {
 	log.Println("Wrote n:", n, "bytes to server")
 
 	// close connection immediately
+	conn.Close()
+}
+
+func tcpServerRun() {
+
+	ServerAddr, err := net.ResolveTCPAddr("tcp", ":8988")
+	if err != nil {
+		log.Println("Error: ", err)
+		return
+	}
+
+	// Listen for incoming connections on all/any IP addresses
+	// on port 8988
+	l, err := net.ListenTCP("tcp", ServerAddr)
+	if err != nil {
+		log.Println("Error listening:", err.Error())
+	}
+
+	// Close the listener when the application closes.
+	defer l.Close()
+
+	log.Println("TCP server running on port 8988 to listen for incoming guaranteed device messages.")
+
+	for {
+		// Listen for an incoming connection.
+		ServerConn, err := l.Accept()
+		if err != nil {
+			log.Println("Error accepting: ", err.Error())
+		}
+		// Handle connections in a new goroutine.
+		go handleTcpRequest(ServerConn)
+	}
+}
+
+// Handles incoming requests.
+func handleTcpRequest(conn net.Conn) {
+
+	// Make a buffer to hold incoming data.
+	buf := make([]byte, 1024)
+
+	// Read the incoming connection into the buffer.
+	reqLen, err := conn.Read(buf)
+	if err != nil {
+		log.Println("Error reading incoming TCP data:", err.Error(), reqLen)
+		return
+	}
+
+	// Send a response back to person contacting us.
+	//  conn.Write([]byte("Message received."))
+
+	addr := conn.RemoteAddr()
+	log.Println("TCP Received ", string(buf[0:reqLen]), " from ", addr)
+
+	m := DataAnnounce{}
+	m.Addr.IP = addr.String()
+	m.Addr.Network = addr.Network()
+	//	m.Addr.Port = addr.Port
+	m.Addr.TcpOrUdp = "tcp"
+
+	var am ClientAnnounceMsg
+	err2 := json.Unmarshal([]byte(buf[0:reqLen]), &am)
+	if err2 != nil {
+		log.Println("Err unmarshalling TCP inbound message from device. err:", err2)
+		return
+	}
+	m.Announce = am.Announce
+	m.Widget = am.Widget
+	m.JsonTag = am.JsonTag
+	m.DeviceId = am.MyDeviceId
+
+	// send message to websocket clients, i.e. ChiliPeppr
+	bm, err := json.Marshal(m)
+	if err == nil {
+		h.broadcastSys <- bm
+	}
+
+	// Close the connection when you're done with it.
 	conn.Close()
 }
