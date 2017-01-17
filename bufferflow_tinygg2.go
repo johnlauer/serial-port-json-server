@@ -97,7 +97,9 @@ func (b *BufferflowTinygG2) Init() {
 	/* End Slot Approach Items */
 
 	/* Start Buffer Size Approach Items */
-	b.BufferMax = 100 //max buffer size 254 bytes available
+	// For G2 the buffer can actually go to 10,000 but the problem is this clogs at the USB layer
+	// and then you can't get feed hold to act in real-time, so we still need to keep this number low
+	b.BufferMax = 250 // max buffer size 10,000 bytes available on g2
 	//b.BufferSize = 0  //initialize buffer at zero bytes
 	b.q = NewQueue()
 	//b.lock = sync.Mutex
