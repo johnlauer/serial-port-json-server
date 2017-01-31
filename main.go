@@ -1,4 +1,4 @@
-// Version 1.93
+// Version 1.95
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -22,10 +22,10 @@ import (
 )
 
 var (
-	version      = "1.94"
-	versionFloat = float32(1.94)
-	addr         = flag.String("addr", ":8989", "http service address")
-	saddr        = flag.String("saddr", ":8990", "https service address")
+	version      = "1.95"
+	versionFloat = float32(1.95)
+	addr         = flag.String("addr", ":8989", "http service address. example :8800 to run on port 8800, example 10.0.0.2:9000 to run on specific IP address and port, example 10.0.0.2 to run on specific IP address")
+	saddr        = flag.String("saddr", ":8990", "https service address. example :8801 to run https on port 8801")
 	scert        = flag.String("scert", "cert.pem", "https certificate file")
 	skey         = flag.String("skey", "key.pem", "https key file")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
@@ -135,7 +135,7 @@ func main() {
 
 	if !*verbose {
 		log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
-		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
+		//		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
 	}
 
 	// list serial ports
@@ -146,6 +146,8 @@ func main() {
 		log.Printf("Got system error trying to retrieve serial port list. Err:%v\n", errSys)
 		log.Fatal("Exiting")
 	}*/
+
+	// serial port list thread
 	go func() {
 		time.Sleep(300 * time.Millisecond)
 		log.SetOutput(io.Writer(os.Stdout))
@@ -197,6 +199,12 @@ func main() {
 	log.Println("The Serial Port JSON Server is now running.")
 	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
 
+	// turn off logging output unless user wanted verbose mode
+	// actually, this is now done after the serial port list thread completes
+	if !*verbose {
+		//		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
+	}
+
 	// wait
 	ch := make(chan bool)
 	<-ch
@@ -207,6 +215,7 @@ func startHttp(ip string) {
 	log.Println("Starting http server and websocket on " + ip + "" + f.Value.String())
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		fmt.Printf("Error trying to bind to http port: %v, so exiting...\n", err)
+		fmt.Printf("This can sometimes mean you are already running SPJS and accidentally trying to run a second time, thus why the port would be in use. Also, check your permissions/credentials to make sure you can bind to IP address ports.")
 		log.Fatal("Error ListenAndServe:", err)
 	}
 }

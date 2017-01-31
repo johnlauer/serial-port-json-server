@@ -399,6 +399,20 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.95
+- Made logging turn off later to see more info on startup of what ports SPJS is running on
+- Added a better error output when address port already in use to help folks who do not realize they may be trying to run SPJS a 2nd time
+
+Changes in 1.94
+- Grbl buffer flow adding the following strings jumping the buffer to front of line. "[!~?]|(\u0018)|[\u0080-\u00FF]"
+- TinyG G2 buffer max changed to 250 from 100.
+- Added TCP server for Cayenn.
+- Added mutex lock in serial port opening to alleviate some deadlocking on opening of ports.
+
+Changes in 1.93
+- Release has new Cayenn commands including cayenn-sendudp and cayenn-sendtcp. SPJS now also listens for incoming UDP and TCP packets to regurgitate them back to the browser.
+- Fixes a bug in 1.92 with spinning CPU consumption.
+
 Changes in 1.92
 - HTTPS and WSS support courtesy of Stewart Allen. Sample cert and key provided in release zip/tar file. Copy sample files to cert.pem and key.pem to have SPJS enable HTTPS/WSS support or use command line parameters of -scert mycert.pem -skey mykey.pem to specify files.
 - Added fix for opening 2nd or more serial ports where there was a block opening an additional port
