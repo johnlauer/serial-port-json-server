@@ -437,7 +437,8 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 		log.Print("Error opening port " + err.Error())
 		//h.broadcastSys <- []byte("Error opening port. " + err.Error())
 		h.broadcastSys <- []byte("{\"Cmd\":\"OpenFail\",\"Desc\":\"Error opening port. " + err.Error() + "\",\"Port\":\"" + conf.Name + "\",\"Baud\":" + strconv.Itoa(conf.Baud) + "}")
-
+		spIsOpening = false
+		spmutex.Unlock()
 		return
 	}
 	log.Print("Opened port successfully")
