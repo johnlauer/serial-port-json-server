@@ -1,4 +1,4 @@
-// Version 1.86
+// Version 1.93
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -22,14 +22,18 @@ import (
 )
 
 var (
-	version      = "1.87"
-	versionFloat = float32(1.87)
+	version      = "1.94"
+	versionFloat = float32(1.94)
 	addr         = flag.String("addr", ":8989", "http service address")
+	saddr        = flag.String("saddr", ":8990", "https service address")
+	scert        = flag.String("scert", "cert.pem", "https certificate file")
+	skey         = flag.String("skey", "key.pem", "https key file")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
-	//verbose = flag.Bool("v", true, "show debug logging")
+	//	verbose = flag.Bool("v", true, "show debug logging")
 	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
 	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
+	isAllowExec  = flag.Bool("allowexec", false, "Allow terminal commands to be executed")
 
 	// regular expression to sort the serial port list
 	// typically this wouldn't be provided, but if the user wants to clean
@@ -75,7 +79,12 @@ func launchSelfLater() {
 
 func main() {
 
+	// Test USB list
+	//	GetUsbList()
+
+	// parse all passed in command line arguments
 	flag.Parse()
+
 	// setup logging
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
@@ -85,7 +94,6 @@ func main() {
 	}
 
 	//getList()
-	f := flag.Lookup("addr")
 	log.Println("Version:" + version)
 
 	// hostname
@@ -107,16 +115,16 @@ func main() {
 		debug.SetGCPercent(-1)
 	}
 
+	if *isAllowExec {
+		log.Println("Enabling exec commands because you passed in -allowexec")
+	}
+
 	ip, err := externalIP()
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Print("Starting server and websocket on " + ip + "" + f.Value.String())
 	//homeTempl = template.Must(template.ParseFiles(filepath.Join(*assets, "home.html")))
-
-	log.Println("The Serial Port JSON Server is now running.")
-	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
 
 	// see if they provided a regex filter
 	if len(*regExpFilter) > 0 {
@@ -164,6 +172,16 @@ func main() {
 	// launch our dummy data routine
 	//go d.run()
 
+	// Run the UDP & TCP Server that are part of the Cayenn protocol
+	// This lets us listen for devices announcing they
+	// are alive on our local network, or are sending data from sensors,
+	// or acknowledgements to commands we send the device.
+	// This is used by Cayenn devices such as ESP8266 devices that
+	// can speak to SPJS and allow SPJS to pass through their data back to
+	// clients such as ChiliPeppr.
+	go udpServerRun()
+	go tcpServerRun()
+
 	// Setup GPIO server
 	// Ignore GPIO for now, but it would be nice to get GPIO going natively
 	//gpio.PreInit()
@@ -172,11 +190,49 @@ func main() {
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/ws", wsHandler)
+
+	go startHttp(ip)
+	go startHttps(ip)
+
+	log.Println("The Serial Port JSON Server is now running.")
+	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
+
+	// wait
+	ch := make(chan bool)
+	<-ch
+}
+
+func startHttp(ip string) {
+	f := flag.Lookup("addr")
+	log.Println("Starting http server and websocket on " + ip + "" + f.Value.String())
 	if err := http.ListenAndServe(*addr, nil); err != nil {
-		fmt.Printf("Error trying to bind to port: %v, so exiting...", err)
+		fmt.Printf("Error trying to bind to http port: %v, so exiting...\n", err)
 		log.Fatal("Error ListenAndServe:", err)
 	}
+}
 
+func startHttps(ip string) {
+	// generate self-signed cert for testing or local trusted networks
+	// openssl req -x509 -nodes -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365
+
+	f := flag.Lookup("saddr")
+	cert, certErr := os.Open(*scert)
+	key, keyErr := os.Open(*skey)
+
+	cert.Close()
+	key.Close()
+
+	if certErr != nil || keyErr != nil {
+		log.Println("Missing tls cert and/or key. Will not start HTTPS server.")
+		//fmt.Println("Missing tls cert and/or key. Will not start HTTPS server.")
+		return
+	}
+
+	log.Println("Starting https server and websocket on " + ip + "" + f.Value.String())
+	if err := http.ListenAndServeTLS(*saddr, *scert, *skey, nil); err != nil {
+		fmt.Printf("Error trying to bind to https port: %v, so exiting...\n", err)
+		log.Fatal("Error ListenAndServeTLS:", err)
+	}
 }
 
 func externalIP() (string, error) {

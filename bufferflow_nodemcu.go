@@ -86,28 +86,40 @@ func (b *BufferflowNodeMcu) Init() {
 				if len(element) > 4 {
 					bTxt := []byte(element)[len(element)-4:]
 					bTest := []byte{14, 219, 200, 244}
-					log.Printf("\t\ttesting two arrays\n\tbTxt :%v\n\tbTest:%v\n", bTxt, bTest)
+					//log.Printf("\t\ttesting two arrays\n\tbTxt :%v\n\tbTest:%v\n", bTxt, bTest)
 					//reWasItReset := regexp.MustCompile("fffd")
 					//if reWasItReset.MatchString(element) {
 					if ByteArrayEquals(bTxt, bTest) {
 						// it was reset, wipe buffer
 						b.q.Delete()
-						log.Printf("\t\tLooks like it was reset. We should wipe buffer.")
+						log.Printf("\t\tLooks like it was reset based on 1st 4 bytes. We should wipe buffer.")
 						b.SetPaused(false, 2)
 					}
 				}
 
 				// see if it just got restarted
-				reIsRestart := regexp.MustCompile("NodeMCU custom build by frightanic.com")
+				reIsRestart := regexp.MustCompile("(NodeMCU custom build by frightanic.com|NodeMCU .+ build .+ powered by Lua)")
 				if reIsRestart.MatchString(element) {
 					// it was reset, wipe buffer
 					b.q.Delete()
-					log.Printf("\t\tLooks like it was reset. We should wipe buffer.")
+					log.Printf("\t\tLooks like it was reset based on NodeMCU build line. We should wipe buffer.")
 					b.SetPaused(false, 2)
 				}
 
+				// Peek to see if the message back matches the command we just sent in
+				lastCmd, _ := b.q.Peek()
+				lastCmd = regexp.MustCompile("\n").ReplaceAllString(lastCmd, "")
+
+				cmdProcessed := false
+				log.Printf("\t\tSeeing if peek compare to lastCmd makes sense. lastCmd:\"%v\", element:\"%v\"", lastCmd, element)
+				if lastCmd == element {
+					// we just got back the last command so that is a good indicator we got processed
+					log.Printf("\t\tWe got back the same command that was just sent in. That is a sign we are processed.")
+					cmdProcessed = true
+				}
+
 				//check for >|stdin:|= response indicating a line has been processed
-				if b.reCmdDone.MatchString(element) {
+				if cmdProcessed || b.reCmdDone.MatchString(element) {
 
 					// ok, a line has been processed, the if statement below better
 					// be guaranteed to be true, cuz if its not we did something wrong
@@ -323,7 +335,7 @@ func (b *BufferflowNodeMcu) SeeIfSpecificCommandsShouldWipeBuffer(cmd string) bo
 	reRestart := regexp.MustCompile("^\\s*node.restart\\(\\)")
 	if reRestart.MatchString(cmd) {
 		log.Printf("\t\tWe found a node.restart() and thus we will wipe buffer")
-		//b.ReleaseLock()
+		b.ReleaseLock()
 		return true
 	} else {
 		return false
