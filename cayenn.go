@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -61,7 +62,7 @@ func udpServerRun() {
 	defer ServerConn.Close()
 
 	log.Println("UDP server running on port 8988 to listen for incoming device announcements and unguaranteed data.")
-	buf := make([]byte, 1024)
+	buf := make([]byte, 1024*10)
 
 	for {
 		n, addr, err := ServerConn.ReadFromUDP(buf)
@@ -126,7 +127,7 @@ func udpServerRun() {
 				// server they are interacting with, however, the debate is i have
 				// Cayenn devices mostly just sending back broadcast messages to entire
 				// network and it's working well
-				sendUdp(arm, m.Addr.IP, ":8988")
+				// sendUdp(arm, m.Addr.IP, ":8988")
 				go sendTcp(arm, m.Addr.IP, ":8988")
 
 				// cayennSendTcpMsg(m.Addr.IP, ":8988", bmsg)
@@ -420,7 +421,7 @@ func tcpServerRun() {
 func handleTcpRequest(conn net.Conn) {
 
 	// Make a buffer to hold incoming data.
-	buf := make([]byte, 1024)
+	buf := make([]byte, 1024*10)
 
 	// Read the incoming connection into the buffer.
 	reqLen, err := conn.Read(buf)
@@ -435,16 +436,43 @@ func handleTcpRequest(conn net.Conn) {
 	addr := conn.RemoteAddr()
 	log.Println("TCP Received ", string(buf[0:reqLen]), " from ", addr)
 
+	// drop port from ip string, cuz we don't care about it. we have known ports
+	// i.e. the ip is 10.0.0.44:23423 and we want to drop :23423
+	re := regexp.MustCompile(":\\d+$")
+	RemoteIp := conn.RemoteAddr().String()
+	RemotePort := re.FindString(RemoteIp)
+	RemotePort = regexp.MustCompile("\\d+$").FindString(RemotePort)
+	RemoteIp = re.ReplaceAllString(RemoteIp, "")
+
 	m := DataAnnounce{}
-	m.Addr.IP = addr.String()
+	m.Addr.IP = RemoteIp
 	m.Addr.Network = addr.Network()
 	//	m.Addr.Port = addr.Port
+	portInt, errConvert := strconv.Atoi(RemotePort)
+	if errConvert != nil {
+		log.Println("Err converting remote port str to int: ", RemotePort)
+	} else {
+		m.Addr.Port = portInt
+	}
 	m.Addr.TcpOrUdp = "tcp"
 
+	// if the tcp message was from us, i.e. we sent out a broadcast so
+	// we got a copy back, just ignore
+	MyIp := conn.LocalAddr().String()
+	MyIp = re.ReplaceAllString(MyIp, "")
+	externIP, _ := externalIP()
+	print("Checking if from me ", RemoteIp, "<>", externIP)
+	if RemoteIp == externIP {
+		log.Println("Got msg back from ourself, so dropping.")
+		//		continue
+		return
+	}
+
 	var am ClientAnnounceMsg
-	err2 := json.Unmarshal([]byte(buf[0:reqLen]), &am)
+	err2 := json.Unmarshal(buf[0:reqLen], &am)
 	if err2 != nil {
-		log.Println("Err unmarshalling TCP inbound message from device. err:", err2)
+		log.Println("Err unmarshalling TCP inbound message from device. err:", err)
+		//		continue
 		return
 	}
 	m.Announce = am.Announce
@@ -456,7 +484,62 @@ func handleTcpRequest(conn net.Conn) {
 	bm, err := json.Marshal(m)
 	if err == nil {
 		h.broadcastSys <- bm
+		log.Println("Sending to websocket back to ChiliPeppr: ", string(bm))
 	}
+
+	// send back our own AnnounceRecv
+	// but only if the incoming message was an "Announce":"i-am-a-client"
+	//re2 := regexp.MustCompile('"Announce":"i-am-a-client"')
+	//if re2.MatchString()
+	if am.Announce == "i-am-a-client" {
+
+		var arm ServerAnnounceResponseMsg
+		arm.Announce = "i-am-your-server"
+		arm.YourDeviceId = am.MyDeviceId
+		arm.ServerIp = conn.LocalAddr().String()
+		arm.Widget = am.Widget
+		//arm.JsonTag = am.JsonTag
+
+		// we send back reverse acknowledgement on both UDP and TCP
+		// but long term we should likely just send a TCP response back
+		// because Cayenn devices will likely long term need to store what
+		// server they are interacting with, however, the debate is i have
+		// Cayenn devices mostly just sending back broadcast messages to entire
+		// network and it's working well
+		//		sendTcp(arm, m.Addr.IP, ":8988")
+		go sendTcp(arm, m.Addr.IP, ":8988")
+
+		// cayennSendTcpMsg(m.Addr.IP, ":8988", bmsg)
+		// go makeTcpConnBackToDevice(m.Addr.IP)
+	} else {
+		log.Println("The incoming msg was not an i-am-client announce so not sending back response")
+	}
+
+	// ORIGINAL CODE
+	/*
+		m := DataAnnounce{}
+		m.Addr.IP = addr.String()
+		m.Addr.Network = addr.Network()
+		//	m.Addr.Port = addr.Port
+		m.Addr.TcpOrUdp = "tcp"
+
+		var am ClientAnnounceMsg
+		err2 := json.Unmarshal([]byte(buf[0:reqLen]), &am)
+		if err2 != nil {
+			log.Println("Err unmarshalling TCP inbound message from device. err:", err2)
+			return
+		}
+		m.Announce = am.Announce
+		m.Widget = am.Widget
+		m.JsonTag = am.JsonTag
+		m.DeviceId = am.MyDeviceId
+
+		// send message to websocket clients, i.e. ChiliPeppr
+		bm, err := json.Marshal(m)
+		if err == nil {
+			h.broadcastSys <- bm
+		}
+	*/
 
 	// Close the connection when you're done with it.
 	conn.Close()
