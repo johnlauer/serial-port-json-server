@@ -1,6 +1,6 @@
 serial-port-json-server
 =======================
-Version 1.94
+Version 1.95
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -400,6 +400,9 @@ sudo service serial-port-json-server start
 Revisions
 -------
 Changes in 1.95
+- Added better TCP server module to Cayenn to support ESP8266 and ESP32 sending tcp messages into
+SPJS to regurgitate to browser, i.e. back up to ChiliPeppr. Prior to this only UDP messages were being
+handled gracefully.
 - Made logging turn off later to see more info on startup of what ports SPJS is running on
 - Added a better error output when address port already in use to help folks who do not realize they may be trying to run SPJS a 2nd time
 
