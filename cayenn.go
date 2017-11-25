@@ -56,7 +56,7 @@ func udpServerRun() {
 	/* Now listen at selected port */
 	ServerConn, err := net.ListenUDP("udp", ServerAddr)
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println("Error creating Cayenn UDP server. Consider using -disablecayenn command line switch to turn off the Cayenn TCP/UDP server. Error: ", err)
 		return
 	}
 	defer ServerConn.Close()
@@ -398,7 +398,8 @@ func tcpServerRun() {
 	// on port 8988
 	l, err := net.ListenTCP("tcp", ServerAddr)
 	if err != nil {
-		log.Println("Error listening:", err.Error())
+		log.Println("Error creating Cayenn TCP server. Consider using -disablecayenn command line switch to turn off the Cayenn TCP/UDP server. Error: ", err.Error())
+		return
 	}
 
 	// Close the listener when the application closes.

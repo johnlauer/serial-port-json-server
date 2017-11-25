@@ -25,22 +25,23 @@ var (
 	version      = "1.95"
 	versionFloat = float32(1.95)
 	addr         = flag.String("addr", ":8989", "http service address. example :8800 to run on port 8800, example 10.0.0.2:9000 to run on specific IP address and port, example 10.0.0.2 to run on specific IP address")
-	saddr        = flag.String("saddr", ":8990", "https service address. example :8801 to run https on port 8801")
-	scert        = flag.String("scert", "cert.pem", "https certificate file")
-	skey         = flag.String("skey", "key.pem", "https key file")
+	//	addr  = flag.String("addr", ":8980", "http service address. example :8800 to run on port 8800, example 10.0.0.2:9000 to run on specific IP address and port, example 10.0.0.2 to run on specific IP address")
+	saddr = flag.String("saddr", ":8990", "https service address. example :8801 to run https on port 8801")
+	scert = flag.String("scert", "cert.pem", "https certificate file")
+	skey  = flag.String("skey", "key.pem", "https key file")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
 	//	verbose = flag.Bool("v", true, "show debug logging")
 	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
-	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
-	isAllowExec  = flag.Bool("allowexec", false, "Allow terminal commands to be executed")
+	isLaunchSelf = flag.Bool("ls", false, "Launch self 5 seconds later. This flag is used when you ask for a restart from a websocket client.")
+	isAllowExec  = flag.Bool("allowexec", false, "Allow terminal commands to be executed (default false)")
 
 	// regular expression to sort the serial port list
 	// typically this wouldn't be provided, but if the user wants to clean
 	// up their list with a regexp so it's cleaner inside their end-user interface
 	// such as ChiliPeppr, this can make the massive list that Linux gives back
 	// to you be a bit more manageable
-	regExpFilter = flag.String("regex", "", "Regular expression to filter serial port list")
+	regExpFilter = flag.String("regex", "", "Regular expression to filter serial port list, i.e. -regex usb|acm")
 
 	// allow garbageCollection()
 	//isGC = flag.Bool("gc", false, "Is garbage collection on? Off by default.")
@@ -52,6 +53,14 @@ var (
 
 	// hostname. allow user to override, otherwise we look it up
 	hostname = flag.String("hostname", "unknown-hostname", "Override the hostname we get from the OS")
+
+	// turn off cayenn
+	isDisableCayenn = flag.Bool("disablecayenn", false, "Disable loading of Cayenn TCP/UDP server on port 8988")
+	//	isLoadCayenn = flag.Bool("allowcayenn", false, "Allow loading of Cayenn TCP/UDP server on port 8988")
+
+	createScript = flag.Bool("createstartupscript", false, "Create an /etc/init.d/serial-port-json-server startup script. Available only on Linux.")
+
+//	createScript = flag.Bool("createstartupscript", true, "Create an /etc/init.d/serial-port-json-server startup script. Available only on Linux.")
 )
 
 type NullWriter int
@@ -91,6 +100,12 @@ func main() {
 	// see if we are supposed to wait 5 seconds
 	if *isLaunchSelf {
 		launchSelfLater()
+	}
+
+	// see if they want to just create startup script
+	if *createScript {
+		createStartupScript()
+		return
 	}
 
 	//getList()
@@ -181,8 +196,13 @@ func main() {
 	// This is used by Cayenn devices such as ESP8266 devices that
 	// can speak to SPJS and allow SPJS to pass through their data back to
 	// clients such as ChiliPeppr.
-	go udpServerRun()
-	go tcpServerRun()
+	if *isDisableCayenn == false {
+		log.Println("Attempting to load Cayenn TCP/UDP server on port 8988...")
+		go udpServerRun()
+		go tcpServerRun()
+	} else {
+		log.Println("Disabled loading of Cayenn TCP/UDP server on port 8988")
+	}
 
 	// Setup GPIO server
 	// Ignore GPIO for now, but it would be nice to get GPIO going natively
