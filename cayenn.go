@@ -61,7 +61,7 @@ func udpServerRun() {
 	}
 	defer ServerConn.Close()
 
-	log.Println("UDP server running on port 8988 to listen for incoming device announcements and unguaranteed data.")
+	log.Println("Cayenn UDP server running on port 8988 to listen for incoming device announcements and unguaranteed data.")
 	buf := make([]byte, 1024*10)
 
 	for {
@@ -405,7 +405,7 @@ func tcpServerRun() {
 	// Close the listener when the application closes.
 	defer l.Close()
 
-	log.Println("TCP server running on port 8988 to listen for incoming guaranteed device messages.")
+	log.Println("Cayenn TCP server running on port 8988 to listen for incoming guaranteed device messages.")
 
 	for {
 		// Listen for an incoming connection.

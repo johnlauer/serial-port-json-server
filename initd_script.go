@@ -15,7 +15,11 @@ func check(e error) {
 func createStartupScript() {
 
 	log.Println("Creating startup script")
-	exeName := os.Args[0]
+	//	exeName := os.Args[0]
+	exeName, err := os.Executable()
+	if err != nil {
+		log.Println("Got error trying to find executable name. Err:", err)
+	}
 	log.Println("exeName", exeName)
 	script := `#! /bin/sh
 ### BEGIN INIT INFO
@@ -58,6 +62,6 @@ esac
 	log.Println(script)
 
 	d1 := []byte(script)
-	err := ioutil.WriteFile("/etc/init.d/serial-port-json-server", d1, 0755)
-	check(err)
+	err2 := ioutil.WriteFile("/etc/init.d/serial-port-json-server", d1, 0755)
+	check(err2)
 }
