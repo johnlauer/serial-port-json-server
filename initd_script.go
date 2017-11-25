@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 )
 
 func check(e error) {
@@ -41,7 +42,7 @@ case "$1" in
   start)
     log_begin_msg "Starting Serial Port JSON Server service"
 # do something
-    ` + exeName + ` -regex usb|acm &
+    ` + exeName + ` &
     log_end_msg $?
     exit 0
     ;;
@@ -64,4 +65,21 @@ esac
 	d1 := []byte(script)
 	err2 := ioutil.WriteFile("/etc/init.d/serial-port-json-server", d1, 0755)
 	check(err2)
+
+	// install it
+	// sudo update-rc.d serial-port-json-server defaults
+	cmd := exec.Command("update-rc.d", "serial-port-json-server", "defaults")
+	err3 := cmd.Start()
+	if err3 != nil {
+		log.Fatal(err3)
+	}
+	log.Printf("Waiting for command to finish...")
+	err4 := cmd.Wait()
+	if err4 != nil {
+		log.Printf("Command finished with error: %v", err4)
+	} else {
+		log.Printf("Successfully created your startup script in /etc/init.d")
+		log.Printf("You can now run /etc/init.id/serial-port-json-server start and this will run automatically on startup")
+	}
+
 }

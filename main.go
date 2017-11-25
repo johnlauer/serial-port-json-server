@@ -164,7 +164,7 @@ func main() {
 
 	// serial port list thread
 	go func() {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(1300 * time.Millisecond)
 		log.SetOutput(io.Writer(os.Stdout))
 		log.Println("Your serial ports:")
 		if len(portList) == 0 {
