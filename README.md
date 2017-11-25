@@ -215,9 +215,11 @@ program portName core:architecture:name $path/to/filename | program com3 arduino
 programfromurl portName core:architecture:name url | programfromurl /dev/ttyACM0 arduino:sam:arduino_due_x http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin | Download a hex/bin file from a URL and then send it to your Arduino board to program it.
 cayenn-sendudp | cayenn-sendudp 192.168.1.12 any-msg-to-end-of-line | Send this command into SPJS and the content after the IP address will be forwarded to the IP address you provided via UDP to port 8988 of the device. This enables IoT communication from the browser since browsers can't message with UDP directly. You can also send to the network broadcast address with UDP.
 cayenn-sendtcp | cayenn-sendtcp 192.168.1.12 any-msg-to-end-of-line | Send this command into SPJS and the content after the IP address will be forwarded to the IP address you provided via TCP to port 8988 of the device. This enables IoT communication from the browser since browsers can't message with TCP directly.
+disablecayenn | | Add this command line flag to disable the loading of the Cayenn TCP/UDP server on port 8988. Defaults to on.
 usblist | usblist | Send this command to get a list of USB devices. Currently only works on Linux ARM. Typically used to find webcams on your Raspberry Pi. (Available in version 1.91 and later)
 execruntime | execruntime | Get the runtime operating system and processor platform for the host running SPJS. Used to figure out if specific commands or features are available on the host especially when used in conjunction with the "exec" command.
 exec | exec id:123 user:pi pass:blah | Used to execute a shell command on the host. You must specificy a user/password.
+createstartupscript |  | Run this command line switch on Linux to have SPJS create an /etc/init.d/serial-port-json-server startup script. You must run as root for this command to work.
 
 Exec and Execruntime 
 -------
