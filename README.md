@@ -407,6 +407,8 @@ SPJS to regurgitate to browser, i.e. back up to ChiliPeppr. Prior to this only U
 handled gracefully.
 - Made logging turn off later to see more info on startup of what ports SPJS is running on
 - Added a better error output when address port already in use to help folks who do not realize they may be trying to run SPJS a 2nd time
+- Added ability to turn off Cayenn UDP/TCP server
+- Added ability to run -createstartupscript on Linux to create an /etc/init.d launcher for auto-start of SPJS on boot
 
 Changes in 1.94
 - Grbl buffer flow adding the following strings jumping the buffer to front of line. "[!~?]|(\u0018)|[\u0080-\u00FF]"
