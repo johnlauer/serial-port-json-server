@@ -1,4 +1,5 @@
 #!/bin/sh
+export GITHUB_TOKEN=d1ce644ff5eef10f4f1e5fbf27515d22c7d68e8b
 
 export GITHUB_USER=chilipeppr
 

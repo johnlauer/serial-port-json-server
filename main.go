@@ -1,4 +1,4 @@
-// Version 1.86
+// Version 1.95
 // Supports Windows, Linux, Mac, and Raspberry Pi, Beagle Bone Black
 
 package main
@@ -22,21 +22,26 @@ import (
 )
 
 var (
-	version      = "1.87"
-	versionFloat = float32(1.87)
-	addr         = flag.String("addr", ":8989", "http service address")
+	version      = "1.95"
+	versionFloat = float32(1.95)
+	addr         = flag.String("addr", ":8989", "http service address. example :8800 to run on port 8800, example 10.0.0.2:9000 to run on specific IP address and port, example 10.0.0.2 to run on specific IP address")
+	//	addr  = flag.String("addr", ":8980", "http service address. example :8800 to run on port 8800, example 10.0.0.2:9000 to run on specific IP address and port, example 10.0.0.2 to run on specific IP address")
+	saddr = flag.String("saddr", ":8990", "https service address. example :8801 to run https on port 8801")
+	scert = flag.String("scert", "cert.pem", "https certificate file")
+	skey  = flag.String("skey", "key.pem", "https key file")
 	//assets       = flag.String("assets", defaultAssetPath(), "path to assets")
-	//verbose = flag.Bool("v", true, "show debug logging")
+	//	verbose = flag.Bool("v", true, "show debug logging")
 	verbose = flag.Bool("v", false, "show debug logging")
 	//homeTempl *template.Template
-	isLaunchSelf = flag.Bool("ls", false, "launch self 5 seconds later")
+	isLaunchSelf = flag.Bool("ls", false, "Launch self 5 seconds later. This flag is used when you ask for a restart from a websocket client.")
+	isAllowExec  = flag.Bool("allowexec", false, "Allow terminal commands to be executed (default false)")
 
 	// regular expression to sort the serial port list
 	// typically this wouldn't be provided, but if the user wants to clean
 	// up their list with a regexp so it's cleaner inside their end-user interface
 	// such as ChiliPeppr, this can make the massive list that Linux gives back
 	// to you be a bit more manageable
-	regExpFilter = flag.String("regex", "", "Regular expression to filter serial port list")
+	regExpFilter = flag.String("regex", "", "Regular expression to filter serial port list, i.e. -regex usb|acm")
 
 	// allow garbageCollection()
 	//isGC = flag.Bool("gc", false, "Is garbage collection on? Off by default.")
@@ -48,6 +53,14 @@ var (
 
 	// hostname. allow user to override, otherwise we look it up
 	hostname = flag.String("hostname", "unknown-hostname", "Override the hostname we get from the OS")
+
+	// turn off cayenn
+	isDisableCayenn = flag.Bool("disablecayenn", false, "Disable loading of Cayenn TCP/UDP server on port 8988")
+	//	isLoadCayenn = flag.Bool("allowcayenn", false, "Allow loading of Cayenn TCP/UDP server on port 8988")
+
+	createScript = flag.Bool("createstartupscript", false, "Create an /etc/init.d/serial-port-json-server startup script. Available only on Linux.")
+
+//	createScript = flag.Bool("createstartupscript", true, "Create an /etc/init.d/serial-port-json-server startup script. Available only on Linux.")
 )
 
 type NullWriter int
@@ -75,7 +88,12 @@ func launchSelfLater() {
 
 func main() {
 
+	// Test USB list
+	//	GetUsbList()
+
+	// parse all passed in command line arguments
 	flag.Parse()
+
 	// setup logging
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
@@ -84,8 +102,13 @@ func main() {
 		launchSelfLater()
 	}
 
+	// see if they want to just create startup script
+	if *createScript {
+		createStartupScript()
+		return
+	}
+
 	//getList()
-	f := flag.Lookup("addr")
 	log.Println("Version:" + version)
 
 	// hostname
@@ -107,16 +130,16 @@ func main() {
 		debug.SetGCPercent(-1)
 	}
 
+	if *isAllowExec {
+		log.Println("Enabling exec commands because you passed in -allowexec")
+	}
+
 	ip, err := externalIP()
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Print("Starting server and websocket on " + ip + "" + f.Value.String())
 	//homeTempl = template.Must(template.ParseFiles(filepath.Join(*assets, "home.html")))
-
-	log.Println("The Serial Port JSON Server is now running.")
-	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
 
 	// see if they provided a regex filter
 	if len(*regExpFilter) > 0 {
@@ -127,7 +150,7 @@ func main() {
 
 	if !*verbose {
 		log.Println("You can enter verbose mode to see all logging by starting with the -v command line switch.")
-		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
+		//		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
 	}
 
 	// list serial ports
@@ -138,8 +161,10 @@ func main() {
 		log.Printf("Got system error trying to retrieve serial port list. Err:%v\n", errSys)
 		log.Fatal("Exiting")
 	}*/
+
+	// serial port list thread
 	go func() {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(1300 * time.Millisecond)
 		log.SetOutput(io.Writer(os.Stdout))
 		log.Println("Your serial ports:")
 		if len(portList) == 0 {
@@ -164,6 +189,21 @@ func main() {
 	// launch our dummy data routine
 	//go d.run()
 
+	// Run the UDP & TCP Server that are part of the Cayenn protocol
+	// This lets us listen for devices announcing they
+	// are alive on our local network, or are sending data from sensors,
+	// or acknowledgements to commands we send the device.
+	// This is used by Cayenn devices such as ESP8266 devices that
+	// can speak to SPJS and allow SPJS to pass through their data back to
+	// clients such as ChiliPeppr.
+	if *isDisableCayenn == false {
+		log.Println("Attempting to load Cayenn TCP/UDP server on port 8988...")
+		go udpServerRun()
+		go tcpServerRun()
+	} else {
+		log.Println("Disabled loading of Cayenn TCP/UDP server on port 8988")
+	}
+
 	// Setup GPIO server
 	// Ignore GPIO for now, but it would be nice to get GPIO going natively
 	//gpio.PreInit()
@@ -172,11 +212,56 @@ func main() {
 
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/ws", wsHandler)
-	if err := http.ListenAndServe(*addr, nil); err != nil {
-		fmt.Printf("Error trying to bind to port: %v, so exiting...", err)
-		log.Fatal("Error ListenAndServe:", err)
+
+	go startHttp(ip)
+	go startHttps(ip)
+
+	log.Println("The Serial Port JSON Server is now running.")
+	log.Println("If you are using ChiliPeppr, you may go back to it and connect to this server.")
+
+	// turn off logging output unless user wanted verbose mode
+	// actually, this is now done after the serial port list thread completes
+	if !*verbose {
+		//		log.SetOutput(new(NullWriter)) //route all logging to nullwriter
 	}
 
+	// wait
+	ch := make(chan bool)
+	<-ch
+}
+
+func startHttp(ip string) {
+	f := flag.Lookup("addr")
+	log.Println("Starting http server and websocket on " + ip + "" + f.Value.String())
+	if err := http.ListenAndServe(*addr, nil); err != nil {
+		fmt.Printf("Error trying to bind to http port: %v, so exiting...\n", err)
+		fmt.Printf("This can sometimes mean you are already running SPJS and accidentally trying to run a second time, thus why the port would be in use. Also, check your permissions/credentials to make sure you can bind to IP address ports.")
+		log.Fatal("Error ListenAndServe:", err)
+	}
+}
+
+func startHttps(ip string) {
+	// generate self-signed cert for testing or local trusted networks
+	// openssl req -x509 -nodes -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365
+
+	f := flag.Lookup("saddr")
+	cert, certErr := os.Open(*scert)
+	key, keyErr := os.Open(*skey)
+
+	cert.Close()
+	key.Close()
+
+	if certErr != nil || keyErr != nil {
+		log.Println("Missing tls cert and/or key. Will not start HTTPS server.")
+		//fmt.Println("Missing tls cert and/or key. Will not start HTTPS server.")
+		return
+	}
+
+	log.Println("Starting https server and websocket on " + ip + "" + f.Value.String())
+	if err := http.ListenAndServeTLS(*saddr, *scert, *skey, nil); err != nil {
+		fmt.Printf("Error trying to bind to https port: %v, so exiting...\n", err)
+		log.Fatal("Error ListenAndServeTLS:", err)
+	}
 }
 
 func externalIP() (string, error) {

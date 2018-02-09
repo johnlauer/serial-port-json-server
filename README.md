@@ -1,8 +1,6 @@
-# Main location for this repo has been moved to https://github.com/chilipeppr/serial-port-json-server
-
 serial-port-json-server
 =======================
-Version 1.87 (See https://github.com/chilipeppr/serial-port-json-server for latest version 1.88+)
+Version 1.95
 
 A serial port JSON websocket &amp; web server that runs from the command line on Windows, Mac, Linux, Raspberry Pi, or Beagle Bone that lets you communicate with your serial port from a web application. This enables web apps to be written that can communicate with your local serial device such as an Arduino, CNC controller, or any device that communicates over the serial port. Since version 1.82 you can now also program your Arduino by uploading a hex file.
 
@@ -15,6 +13,12 @@ If you are a web developer and want to write a web application that connects to 
 For example, if you wanted to create a Gcode Sender web app to enable people to send 3D print or milling commands from your site, this would be a perfect use case. Or if you've created an oscilloscope web app that connects to an Arduino, it would be another great use case. Finally you can write web apps that interact with a user's local hardware.
 
 Thanks go to gary.burd.info for the websocket example in Go. Thanks also go to tarm/goserial for the serial port base implementation. Thanks go to Jarret Luft at well for building the Grbl buffer and helping on global code changes to make everything better.
+
+Front-End Javascript Client
+---------
+There is a very thorough front-end Javascript client available called "widget-spjs" located at http https://github.com/chilipeppr/widget-spjs. This widget is good if you want your web page to talk to the Serial Port JSON Server (SPJS). This widget enables numerous pubsub signals via amplify.js so you can publish to SPJS and receive data back when you subscribe to the appropriate signals.
+
+![](https://github.com/chilipeppr/widget-spjs/raw/master/screenshot.png)
 
 Example Use Case
 ---------
@@ -75,6 +79,20 @@ Here's a screenshot of a successful run on Windows x64. Make sure you allow the 
 
 Binaries for Download
 ---------
+You can now always check the Releases page on Github for the latest binaries.
+https://github.com/chilipeppr/serial-port-json-server/releases
+
+Version 1.88
+Build date: Feb 15, 2016
+Nodemcu buffer. Terminal commands. Cayenn protocol for IoT.
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_windows_386.zip">Windows x32</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_windows_amd64.zip">Windows x64</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_386.tar.gz">Linux x32</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_amd64.tar.gz">Linux x64</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_arm.tar.gz">Raspberry Pi (Linux ARM)</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_arm.tar.gz">Beagle Bone Black (Linux ARMv7)</a>
+- <a class="list-group-item" href="https://github.com/chilipeppr/serial-port-json-server/releases/download/v1.88/serial-port-json-server-1.88_linux_amd64.tar.gz">Intel Edison (Linux x64)</a>
+
 Version 1.86
 Build date: Oct 4, 2015
 Latest TinyG buffer and firmware programmer.
@@ -137,10 +155,16 @@ Feed Rate Override
 There is a new feature available as of version 1.83 which is Feed Rate Override. It can be triggered by sending in a command like the following:
 
 `fro COM4 0.5`
+`fro /dev/ttyUSB0 0.5`
 
 This command asks SPJS to override the existing feed rate and reduce it by half. If you have a feedrate of 200 then the command above would bring it to 100 by multiplying 200 * 0.5 = 100. To turn off the feed rate override set it back to 0 with a command such as:
 
 `fro COM4 0.0`
+`fro /dev/ttyUSB0 0.0`
+
+To increase speed 2x
+
+`fro COM4 2`
 
 How to Build
 ---------
@@ -161,10 +185,10 @@ Video tutorial of building SPJS on a Mac: https://www.youtube.com/watch?v=4Hou06
 	export GOPATH=/home/john/go
 	On Windows, use the Environment Variables dialog by right-click My Computer to create GOPATH
 5. Change directory into your GOPATH
-6. Type "go get github.com/johnlauer/serial-port-json-server". This will retrieve this Github project and all dependent projects. It takes some time to run this.
-7. Then change direcory into src\github.com\johnlauer\serial-port-json-server. 
-8. Type "go build" when you're inside that directory and it will create a binary called serial-port-json-server
-9. Run it by typing ./serial-port-json-server or on Windows run serial-port-json-server.exe
+6. Type `go get github.com/chilipeppr/serial-port-json-server`. This will retrieve this Github project and all dependent projects. It takes some time to run this.
+7. Then change direcory into `src/github.com/chilipeppr/serial-port-json-server`. 
+8. Type `go build` when you're inside that directory and it will create a binary called serial-port-json-server
+9. Run it by typing `./serial-port-json-server` or on Windows run serial-port-json-server.exe
 10. If you have a firewall on the computer running the serial-port-json-server you must allow port 8989 in the firewall.
 
 Supported Commands
@@ -189,6 +213,32 @@ version | | Get the software version of SPJS that is running
 hostname | | Get the hostname of the current SPJS instance 
 program portName core:architecture:name $path/to/filename | program com3 arduino:avr:uno c:\myfiles\grbl_9i.hex | Send a hex file to your Arduino board to program it.
 programfromurl portName core:architecture:name url | programfromurl /dev/ttyACM0 arduino:sam:arduino_due_x http://synthetos.github.io/g2/binaries/TinyG2_Due-edge-078.03-default.bin | Download a hex/bin file from a URL and then send it to your Arduino board to program it.
+cayenn-sendudp | cayenn-sendudp 192.168.1.12 any-msg-to-end-of-line | Send this command into SPJS and the content after the IP address will be forwarded to the IP address you provided via UDP to port 8988 of the device. This enables IoT communication from the browser since browsers can't message with UDP directly. You can also send to the network broadcast address with UDP.
+cayenn-sendtcp | cayenn-sendtcp 192.168.1.12 any-msg-to-end-of-line | Send this command into SPJS and the content after the IP address will be forwarded to the IP address you provided via TCP to port 8988 of the device. This enables IoT communication from the browser since browsers can't message with TCP directly.
+disablecayenn | | Add this command line flag to disable the loading of the Cayenn TCP/UDP server on port 8988. Defaults to on.
+usblist | usblist | Send this command to get a list of USB devices. Currently only works on Linux ARM. Typically used to find webcams on your Raspberry Pi. (Available in version 1.91 and later)
+execruntime | execruntime | Get the runtime operating system and processor platform for the host running SPJS. Used to figure out if specific commands or features are available on the host especially when used in conjunction with the "exec" command.
+exec | exec id:123 user:pi pass:blah | Used to execute a shell command on the host. You must specificy a user/password.
+createstartupscript |  | Run this command line switch on Linux to have SPJS create an /etc/init.d/serial-port-json-server startup script. You must run as root for this command to work.
+
+Exec and Execruntime 
+-------
+SPJS now supports the exec and execruntime commands. These were added to enable users to fully control their device running SPJS. For example, the Cam widget in ChiliPeppr uses this command to install a WebRTC server on the SPJS host so you don't have any work to do configuring your host. To solve security concerns you have to specify a username/password combination in the command. Keep in mind that this user/pass is sent over the websocket which is cleartext, so only use this feature when behind a firewall or over a VPN. You may also specify the -allowexec option (which is not on by default for security) on the command line when launching SPJS to bypass the requirement for the user/pass to be provided for each exec command.
+
+The exec command was necessary because the growing number of devices being used to create one overall solution is increasing and the configuration and management of those devices is becoming a problem. For example, in the ChiliPeppr world users are working on a Pick and Place machine. The solution will use multiple Raspberry Pi's to host a webcam and do OpenCV machine vision processing. Configuring and aggregating those devices needs to be done by the front-end Javascript widgets and thus these commands solve that problem.
+
+Example of asking SPJS to tell you the runtime environment of the host computer.
+```
+execruntime
+{"ExecRuntimeStatus":"Done","OS":"linux","Arch":"arm","Goroot":"/home/pi/go","NumCpu":4}
+```
+
+Example of executing the echo command with the parameter of done.
+```
+exec id:123 user:pi pass:blah echo "done"
+{"ExecStatus":"Progress","Id":"123","Cmd":"/bin/bash","Args":["echo \"done\""],"Output":"done"}
+{"ExecStatus":"Done","Id":"123","Cmd":"/bin/bash","Args":["echo \"done\""],"Output":"done"}
+```
 
 Programming Your Arduino from SPJS
 -------
@@ -262,6 +312,10 @@ And if the ChiliPeppr workspace were listening for all incoming {"Cmd":"Broadcas
 
 Interesting Branches of SPJS
 -----------
+https://github.com/arduino/arduino-create-agent
+
+The Arduino team is basing their new web IDE on SPJS. That's just awesome! They've definitely taken SPJS to new heights and in different directions. The two projects have branched enough that pull requests aren't clean anymore, but we can still borrow nicely from eachother with new features that either project adds.
+
 https://github.com/benjamind/gpio-json-server/
 
 This is a very interesting branch on this project where Ben took the basic code layout, websocket, and command structure and created a GPIO server version of this app. It's such an interesting and awesome project, it makes me want to combine his code into SPJS to make a full-blown version of serving up hardware ports via JSON and websockets--whether they're serial ports or GPIO ports. Something about that just feels right. The only downside is that no Windows or Mac machines have GPIO, so it would be a very Raspberry Pi specific feature.
@@ -330,6 +384,10 @@ case "$1" in
 esac
 </pre>
 
+Make your script executable
+
+`sudo chmod +x /etc/init.d/serial-port-json-server`
+
 Then you need to run the following command to setup your /etc/init.d script so it starts on boot up of your computer...
 
 `sudo update-rc.d serial-port-json-server defaults`
@@ -343,12 +401,49 @@ sudo service serial-port-json-server start
 
 Revisions
 -------
+Changes in 1.95
+- Added better TCP server module to Cayenn to support ESP8266 and ESP32 sending tcp messages into
+SPJS to regurgitate to browser, i.e. back up to ChiliPeppr. Prior to this only UDP messages were being
+handled gracefully.
+- Made logging turn off later to see more info on startup of what ports SPJS is running on
+- Added a better error output when address port already in use to help folks who do not realize they may be trying to run SPJS a 2nd time
+- Added ability to turn off Cayenn UDP/TCP server
+- Added ability to run -createstartupscript on Linux to create an /etc/init.d launcher for auto-start of SPJS on boot
+
+Changes in 1.94
+- Grbl buffer flow adding the following strings jumping the buffer to front of line. "[!~?]|(\u0018)|[\u0080-\u00FF]"
+- TinyG G2 buffer max changed to 250 from 100.
+- Added TCP server for Cayenn.
+- Added mutex lock in serial port opening to alleviate some deadlocking on opening of ports.
+
+Changes in 1.93
+- Release has new Cayenn commands including cayenn-sendudp and cayenn-sendtcp. SPJS now also listens for incoming UDP and TCP packets to regurgitate them back to the browser.
+- Fixes a bug in 1.92 with spinning CPU consumption.
+
+Changes in 1.92
+- HTTPS and WSS support courtesy of Stewart Allen. Sample cert and key provided in release zip/tar file. Copy sample files to cert.pem and key.pem to have SPJS enable HTTPS/WSS support or use command line parameters of -scert mycert.pem -skey mykey.pem to specify files.
+- Added fix for opening 2nd or more serial ports where there was a block opening an additional port
+
+Changes in 1.91
+- Added usblist command so can list USB devices like webcams. Only works on Linux for now.
+- Added username/password authentication to exec command to solve security concerns.
+- Marlin buffer updates from Peter van der Walt
+
+Changes in 1.89
+- Nodemcu buffer fix so it doesn't stall
+
+Changes in 1.88
+- Added cayenn.go which is the new protocol for ChiliPeppr's Cayenn IoT communication socket service so IoT devices can send announce messages about their presence and SPJS will connect back to them to allow them to broadcast out commands to all connected SPJS websockets as well as have sockets message back to the IoT devices.
+- Added cayenn-sendudp command to overall command list so clients like ChiliPeppr or other connected websocket clients can send back to devices over UDP to enable IoT communications.
+- Added nodemcu buffer so http://chilipeppr.com/nodemcu workspace works correctly.
+
 Changes in 1.87
 - Added exec and execruntime commands. The exec command lets you simply execute any command on the host operating system 
 as if you were logged in at the command line. This is similar to the program command which essentially was executing a 
 command on the command line. However, now you can do any command you want. Make sure your host OS is behind a firewall as
 this method opens up your device to any command being executed on it. 
-Changes in 1.86
+
+Changes in 1.88
 - Rewrote "tinyg" buffer to use better locking technique on in/out thread to remove chance that r:{}'s are lost and jobs get paused mysteriously. Now report {"Lbs":xx} which is a LocalBufferSize report that tells the UI how many characters are in the TinyG buffer from SPJS's perspective. This will help users see if in fact there is a mis-sync between what SPJS thinks is in the TinyG buffer and what actually is in that buffer. The {"Lbs":0} value will be reported back after every r:{} received from TinyG.
 - Added "Pause" value in sendjson command so you can ask SPJS to pause after sending a serial command. This was needed because on Atmel processors during an EEPROM write all data is dropped that is sent in on the serial lines. To use this value, send in a sendjson command similar to the following:
 `sendjson {"P":"COM7","Data":[{"D":"{\"ej\":1}\n","Id":"tinygInit-cmd182","Pause":50}]}`

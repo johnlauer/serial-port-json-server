@@ -371,12 +371,13 @@ var spIsOpening = false
 func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) {
 
 	log.Print("Inside spHandler")
-	spmutex.Lock()
+
 	if spIsOpening {
 		log.Println("We are currently in the middle of opening a port. Returning...")
 		return
 	}
 	spIsOpening = true
+	spmutex.Lock()
 
 	var out bytes.Buffer
 
@@ -531,13 +532,17 @@ func spHandlerOpen(portname string, baud int, buftype string, isSecondary bool) 
 	go p.writerBuffered()
 	// this is thread to send to serial port regardless of block
 	go p.writerNoBuf()
+	//v1.89 moved unlock here
+	spIsOpening = false
+	spmutex.Unlock()
 	p.reader()
-	//go p.reader()
+	//	go p.reader()
 	//p.done = make(chan bool)
 	//<-p.done
 
-	spIsOpening = false
-	spmutex.Unlock()
+	// prior to 1.89 i had lock here.
+	//	spIsOpening = false
+	//	spmutex.Unlock()
 }
 
 func spHandlerCloseExperimental(p *serport) {
